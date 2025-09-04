@@ -1,0 +1,8 @@
+# Ignore pycache
+__pycache__/
+
+# Ignore advisors folder
+advisors/
+
+# Ignore vnums.txt
+vnums.txt

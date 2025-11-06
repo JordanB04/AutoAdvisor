@@ -1,0 +1,50 @@
+ENGL 110 Composition I TR 3.000 
+- 
+CSCI 101 Intro the Cmptr Sci Profession A 2.000 
+CSCI 150 Programming I A 3.000 
+CSCI 151 Programming I Lab A 1.000 
+ENGL 202 Intro African American Lit A 3.000 
+FRST 101 Freshman Studies (HONORS) S 0.000 
+MATH 260 Calculus I W 4.000 
+SOCI 101 Introduction To Sociology B 3.000 
+- 
+CSCI 250 Programming II A 3.000 
+CSCI 251 Programming II Lab A 1.000 
+ENGL 111 Composition II A 3.000 
+HIST 114 World History to 1500 B 3.000 
+HPER 170 Health And Wellness B 2.000 
+MATH 260 Calculus I C 4.000 
+PHED 120 Foundations Of Physical Ed C 2.000 
+- 
+CSCI 287 Data Structures A 3.000 
+CSCI 303 Computer Org & Architecture A 3.000 
+CSCI 398 Internship Computer Science II A 3.000 
+CSCI 495 TOPS in CS:Android APP Develop B 3.000 
+MATH 261 Calculus II B 4.000 
+- 
+CSCI 296 Web Programming A 3.000 
+CSCI 356 Database Systems B 3.000 
+CSCI 358 Introd Information Assurance B 3.000 
+ENGL 342 Technical Communication A 3.000 
+SPAN 110 Elementary Spanish I A 3.000 
+- 
+CSCI 445 Computer Communication Network A 3.000 
+CSCI 489 Operating Systems B 3.000 
+PHIL 275 Ethics A 3.000 
+PHYS 105 Introduction to Physics I B 1.000 
+PHYS 105 Introduction to Physics I A 3.000 
+STAT 340 Probability Stat Cmptr Scienti A 3.000 
+- 
+CSCI 400 Computer Science Seminar A 2.000 
+CSCI 485 Programming Languages A 3.000 
+MATH 280 Discrete Math Computer Science B 3.000 
+MATH 325 Linear Algebra A 3.000 
+PHYS 106 Introduction to Physics II B 1.000 
+PHYS 106 Introduction to Physics II A 3.000 
+- 
+CSCI 281 U Discrete Structures inprog 3.000 
+CSCI 471 U Parallel & Distributed Program inprog 3.000 
+CSCI 487 U Software Design And Developmen inprog 3.000 
+CSCI 493 U Senior Project I inprog 3.000 
+CSCI 495 U Top in CS: Intro to Data Scien inprog 3.000 
+- 

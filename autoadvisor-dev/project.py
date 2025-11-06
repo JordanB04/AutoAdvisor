@@ -17,8 +17,13 @@ import os #used for read/write to files
 import re #used for regular expressions
 import sys #used to stop execution under certain circumstances
 import preprocess
+import json
+from selenium.common.exceptions import TimeoutException
 
 version = "2.4.4-Student"
+
+#Get Rid of Tkinter so it can be ran from the terminal
+
 
 #Class to hold student login info for session
 class student_credentials():
@@ -402,8 +407,104 @@ def create_file_path(fullname ,path, filename, file_type, array):
     else:
         print("Error! Folder path for " + fullname + " does not exist!")
 
+
+def create_note_files(path, name, vnumber, advisor):
+    """Generate a JSON note and a text note summarizing the student's transcript.
+    Expects files 'courses.txt' and 'semesters.txt' in the given path.
+    """
+    courses_path = os.path.join(path, 'courses.txt')
+    semesters_path = os.path.join(path, 'semesters.txt')
+    note_json_path = os.path.join(path, 'note.json')
+    note_txt_path = os.path.join(path, 'note.txt')
+
+    semesters = []
+    # read semesters file if present
+    if os.path.exists(semesters_path):
+        with open(semesters_path, 'r', encoding='utf-8') as f:
+            sem_lines = [l.strip() for l in f.readlines()]
+            # group by '-' separators
+            curr = []
+            for line in sem_lines:
+                if line == '-' or line == '':
+                    if curr:
+                        semesters.append(' '.join(curr).strip())
+                        curr = []
+                else:
+                    curr.append(line)
+            if curr:
+                semesters.append(' '.join(curr).strip())
+
+    # read courses and group into semesters by '-' marker
+    sem_courses = []
+    if os.path.exists(courses_path):
+        with open(courses_path, 'r', encoding='utf-8') as f:
+            lines = [l.strip() for l in f.readlines()]
+            current = []
+            for line in lines:
+                if line == '-' or line == '':
+                    if current:
+                        sem_courses.append(current.copy())
+                        current = []
+                else:
+                    # store raw course string
+                    current.append(line)
+            if current:
+                sem_courses.append(current.copy())
+
+    # assign human-friendly semester labels (Freshman/Sophomore/Junior/Senior)
+    labels = []
+    label_names = ['Freshman', 'Sophomore', 'Junior', 'Senior']
+    for i in range(len(sem_courses)):
+        year = i // 2  # two semesters per academic year
+        part = (i % 2) + 1
+        base = label_names[year] if year < len(label_names) else f'Year{year+1}'
+        labels.append(f"{base} {part}")
+
+    # build JSON structure
+    data = {
+        'name': name,
+        'v_number': vnumber,
+        'advisor': advisor,
+        'semesters': []
+    }
+
+    for idx, courses in enumerate(sem_courses):
+        sem_label = labels[idx] if idx < len(labels) else f'Semester {idx+1}'
+        sem_info = {
+            'label': sem_label,
+            'description': semesters[idx] if idx < len(semesters) else '',
+            'courses': courses
+        }
+        data['semesters'].append(sem_info)
+
+    # write json
+    try:
+        with open(note_json_path, 'w', encoding='utf-8') as jf:
+            json.dump(data, jf, indent=2)
+        print(f"Wrote JSON note to {note_json_path}")
+    except Exception as e:
+        print(f"Failed to write JSON note: {e}")
+
+    # write plain text note
+    try:
+        with open(note_txt_path, 'w', encoding='utf-8') as tf:
+            tf.write(f"Name: {name}\n")
+            tf.write(f"V-Number: {vnumber}\n")
+            tf.write(f"Advisor: {advisor}\n\n")
+            tf.write('Transcripts / Semesters:\n')
+            for sem in data['semesters']:
+                tf.write(f"{sem['label']}: {sem['description']}\n")
+                for c in sem['courses']:
+                    tf.write(f"  - {c}\n")
+                tf.write('\n')
+        print(f"Wrote text note to {note_txt_path}")
+    except Exception as e:
+        print(f"Failed to write text note: {e}")
+        
+#Above can stay Global
 # MAIN EXECUTION STARTS HERE
 #Gets student login credentials
+#Everything from here on down in the main function
 student = student_credentials()
 
 try:
@@ -428,73 +529,56 @@ wait = WebDriverWait(driver, 10)
 
 #attempt to log in
 
-# Enter username
 wait.until(EC.visibility_of_element_located((By.ID, "input28")))
 uid = driver.find_element(By.ID, "input28")
 uid.send_keys(username)
-
-# Enter password
-wait.until(EC.visibility_of_element_located((By.ID, "input62")))
-pwd = driver.find_element(By.ID, "input62")
-pwd.send_keys(password)
-
-# Click login/submit button
 driver.find_element(By.CSS_SELECTOR, ".button").click()
-
-wait = WebDriverWait(driver, 2)
-
+ 
+wait = WebDriverWait(driver, 5)
+ 
 try:
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Verify with something else")))
     driver.find_element(By.LINK_TEXT, "Verify with something else").click()
 except TimeoutException:
     pass
-
+ 
 wait = WebDriverWait(driver, 600)
-
-# Get authentication method from student
+ 
+# Get authentication method from user
 auth_type = student.get_verify_method()
-
-# --- New authentication selection block ---
-import time
-wait.until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, ".authenticator-row:nth-child(2) .button")))
-#auth_buttons = driver.find_elements(By.CSS_SELECTOR, ".authenticator-row .button")
-auth_buttons = driver.find_elements(By.CSS_SELECTOR, ".authenticator-row:nth-child(2) .button")
-
-print("Available authentication methods:")
-for btn in auth_buttons:
-    print(btn.text)  # Print the text of each button for debugging
-
-# Select the correct button based on auth_type
-
-# Map dropdown selection to correct authenticator button
-selected = False
-if auth_type == "Okta 2FA Code":
-    try:
-        btn = driver.find_element(By.CSS_SELECTOR, ".authenticator-row:nth-child(1) .button")
-        btn.click()
-        print("Selected Okta 2FA Code (nth-child(1))")
-        selected = True
-    except Exception as e:
-        print(f"Error selecting Okta 2FA Code: {e}")
-elif auth_type == "Okta Push Notification":
-    try:
-        btn = driver.find_element(By.CSS_SELECTOR, ".authenticator-row:nth-child(2) .button")
-        btn.click()
-        print("Selected Okta Push Notification (nth-child(2))")
-        selected = True
-    except Exception as e:
-        print(f"Error selecting Okta Push Notification: {e}")
-
-if not selected:
-    print(f"Authentication method '{auth_type}' not found or not handled. Defaulting to first available.")
-    auth_buttons[0].click()
-
+test = driver.find_elements(By.XPATH, "//div[@class = 'authenticator-row clearfix']")
+for t in test:
+    button = t.find_element(By.CSS_SELECTOR, "a[data-se='button']")
+    target = button.get_attribute("aria-label")
+    match auth_type:
+        case "Google Authenticator":
+            if(target == "Select Google Authenticator."):
+                button.click()
+                break
+        case "Okta 2FA Code":
+            if(target == "Select to enter a code from the Okta Verify app."):
+                button.click()
+                break
+        case "Okta Push Notification":
+            if(target == "Select to get a push notification to the Okta Verify app."):
+                button.click()
+                break
+ 
+wait = WebDriverWait(driver, 10)
+ 
+try:
+    wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@type = 'password']")))    
+    pwd = driver.find_element(By.XPATH, "//input[@type = 'password']")
+    pwd.send_keys(password)
+    driver.find_element(By.CSS_SELECTOR, ".button").click()
+except TimeoutException:
+    pass
 
 
 
 # UPDATED: Navigate to Student Services instead of Faculty Services
-wait.until(EC.element_to_be_clickable((By.XPATH, "//a[@aria-label='launch app Banner Self Service Student 9']")))
-driver.find_element(By.XPATH, "//a[@aria-label='launch app Banner Self Service Student 9']").click()
+wait.until(EC.element_to_be_clickable((By.XPATH, "//img[@alt='Banner Student Self Service logo']")))
+driver.find_element(By.XPATH, "//img[@alt='Banner Student Self Service logo']").click()
 
 wait = WebDriverWait(driver, 10)
 
@@ -508,25 +592,94 @@ second_window = driver.current_window_handle
 
 # UPDATED: Navigate to student's own transcript
 wait.until(EC.title_is("Student Services Dashboard"))
-driver.find_element(By.LINK_TEXT, "Academic Transcript").click()
+driver.find_element(By.LINK_TEXT, "Student Profile").click()
+import re
+from selenium.common.exceptions import TimeoutException
 
-# Process the student's own transcript
+try:
+    print("Waiting for Student Profile title...")
+
+    # Use the correct locator type: By.XPATH
+    vnum_element = WebDriverWait(driver, 5).until(
+        EC.presence_of_element_located((By.XPATH, "//div[@id='title-panel']/h1"))
+    )
+
+    # Grab the header text
+    vnum_text = vnum_element.text.strip()
+    print("✅ Raw Header Text:", vnum_text)
+
+    # Example: "Student Profile – Jordan A. Broomfield (V00679148)"
+    match = re.search(r"Student Profile\s*[–-]\s*(.+)\s+\((V\d+)\)", vnum_text)
+    if match:
+        student_name = match.group(1).strip()
+        vnumber = match.group(2).strip()
+        print(f"✅ Name: {student_name}")
+        print(f"✅ V-Number: {vnumber}")
+    else:
+        print("⚠️ Could not parse name and V-number from:", vnum_text)
+
+except TimeoutException:
+    print("❌ Could not locate the Student Profile title element quickly.")
+print(vnumber)
+
+#Navigate to Student Profile. Code Below will handle the rest.
 sem_flag = student.get_sem_flag()
-
 dt = datetime.now()
 timestamp = dt.strftime("%b") + "-" + str(dt.day) + "-" + str(dt.year) + "-" + str(dt.hour) + "-" + str(dt.minute) + "-" + str(dt.second)
 
-# Create status window for single student processing
-
-# --- Old authentication block commented out ---
-# match auth_type:
-#     ...
-
-# UPDATED: Process the student's own data
+wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Academic Transcript")))
+#Pulls Advisor Names
 try:
-    preprocess.main([student_id], config_file, [student_id], [[student_id]], sem_flag, timestamp)
-    print('Program complete! Check files for your advisory report.')
-    messagebox.showinfo("Success", f"Your transcript analysis is complete!\nCheck the folder: my_transcript/{timestamp}/")
-except Exception as e:
-    print(f'Error in preprocessing: {e}')
-    messagebox.showerror("Error", f"Error processing your data: {e}")
+        advisor_listing = driver.find_element(By.CSS_SELECTOR, ".facultyLinkClass:nth-child(2)").text.split(" ")
+        advisor = advisor_listing[-1]
+except NoSuchElementException:
+        pass
+driver.find_element(By.LINK_TEXT, "Academic Transcript").click()
+for window_handle in driver.window_handles:
+        if window_handle != original_window and window_handle != second_window:
+            driver.switch_to.window(window_handle)
+wait.until(EC.visibility_of_element_located((By.ID, "transcriptLevelSelection")))
+driver.find_element(By.ID, "transcriptLevelSelection").click()
+wait.until(EC.visibility_of_element_located((By.XPATH, "//li[@id='ui-select-choices-row-1-']/div/div")))
+driver.find_element(By.XPATH, "//li[@id='ui-select-choices-row-1-']/div/div").click()
+wait.until(EC.visibility_of_element_located((By.ID, "transcriptTypeSelection")))
+driver.find_element(By.ID, "transcriptTypeSelection").click()
+wait.until(EC.visibility_of_element_located((By.XPATH, "//li[@id='ui-select-choices-row-2-']/div/div")))
+driver.find_element(By.XPATH, "//li[@id='ui-select-choices-row-2-']/div/div").click()
+wait.until(EC.visibility_of_element_located((By.XPATH, "//button[contains(.,'Submit')]")))
+driver.find_element(By.XPATH, "//button[contains(.,'Submit')]").click()
+
+
+path = "advisors/" + timestamp + "/" + advisor + "/" + student_name.strip() + '/' + config_file.split('/')[-1].split('.')[0]
+
+
+build_path(path, student_name.strip())
+success = build_files(path, driver, student_name.strip())
+
+if not success:
+    try:
+        driver.close()
+    except Exception:
+        pass
+else:
+    try:
+        create_note_files(path, username.strip(), username.strip(), advisor)
+    except Exception as e:
+        print(f"Error creating note files: {e}")
+
+driver.quit()
+
+#Change username to V-number for 3rd Element
+# --- Pass actual scraped data to preprocess.py ---
+preprocess.main(
+    [student_name],
+    config_file,
+    [vnumber],
+    [student_name],
+    sem_flag,
+    timestamp,
+    advisor  
+)
+
+
+ 

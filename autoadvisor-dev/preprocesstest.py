@@ -11,10 +11,10 @@ def find_advisor(name, config_file, timestamp):
         if os.path.exists(fpath):
             return advisor
 
-def main(fullname, config_file, vnums, names, sem_flag, timestamp, advisor=None):
+def main(fullname, config_file, vnums, names, sem_flag, timestamp):
     counter = 0
     for name in fullname:
-        #advisor = find_advisor(name, config_file, timestamp)
+        advisor = find_advisor(name, config_file, timestamp)
         name = name.strip()
         f1 = open("advisors/" + timestamp + "/" + advisor + "/" + name + "/" + config_file.split('/')[-1].split('.')[0] + "/courses.txt", "r")
         f2 = open("advisors/" + timestamp + "/" + advisor + "/" + name + "/" + config_file.split('/')[-1].split('.')[0] + "/semesters.txt", "r")

@@ -471,6 +471,7 @@ def format_cells(wb, ws, start, end, start_cell, end_cell, col_size):
                 break
         i += 1
 
+#Main Function
 def main(courses, name, config_file, fullname, vnum, advisor, sem_flag, timestamp):
     print("Generating Advisory Report for " + name + "...")
     print(vnum)
@@ -738,7 +739,6 @@ def main(courses, name, config_file, fullname, vnum, advisor, sem_flag, timestam
 
         ]
 
-        #Add Semester, Terms, Notes Column 
         semesters = []
         for label, semdict in sem_pairs:
             courses_list = []
@@ -747,10 +747,7 @@ def main(courses, name, config_file, fullname, vnum, advisor, sem_flag, timestam
                 cid = course_vals[0] if len(course_vals) > 0 else ''
                 cname = course_vals[1] if len(course_vals) > 1 else ''
                 grade = course_vals[2] if len(course_vals) > 2 else ''
-                cred = course_vals[3] if len(course_vals) > 3 else ''
-                semester = course_vals[4] if len(course_vals) > 4 else ''
-                notes = course_vals[5] if len(course_vals) > 5 else ''
-                courses_list.append(f"{cid} - {cname} - {grade} - {cred} - {semester} - {notes}")
+                courses_list.append(f"{cid} - {cname} - {grade}")
             semesters.append({"label": label, "description": "", "courses": courses_list})
 
         note_data = {

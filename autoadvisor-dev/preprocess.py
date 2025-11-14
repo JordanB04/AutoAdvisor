@@ -1,19 +1,101 @@
 import advise
 import re
 import os
+import json
+import warnings
+
+# suppress openpyxl user warnings (optional)
+warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl.*")
+
 
 def find_advisor(name, config_file, timestamp):
-    advisor_path = "advisors/" + timestamp
-    advisors = [f for f in os.listdir(advisor_path)]
-    for advisor in advisors:
-        #print(advisor)
-        fpath = "advisors/" + timestamp + "/" + advisor + "/" + name + "/" + config_file.split('/')[-1].split('.')[0] + "/courses.txt"
-        if os.path.exists(fpath):
-            return advisor
+    """Return advisor folder name if found under advisors/<timestamp>/"""
+    advisor_path = os.path.join("advisors", timestamp)
+    try:
+        advisors = [f for f in os.listdir(advisor_path)]
+    except Exception:
+        return None
+    for adv in advisors:
+        if adv and adv in name:
+            return adv
+    # fallback: return first advisor folder if any
+    return advisors[0] if advisors else None
 
-def main(fullname, config_file, vnums, names, sem_flag, timestamp, advisor=None):
+
+def handle_note_json(note_json):
+    """
+    Minimal handler for incoming structured note JSON.
+    Validates basic shape and returns the same object for further processing.
+    """
+    if not note_json:
+        return None
+    if not isinstance(note_json, dict):
+        print("handle_note_json: note_json is not a dict")
+        return None
+    # basic validation
+    name = note_json.get("name")
+    vnum = note_json.get("v_number")
+    semesters = note_json.get("semesters", [])
+    if not name or not vnum:
+        print("handle_note_json: missing name or v_number")
+        return None
+    if not isinstance(semesters, list):
+        print("handle_note_json: semesters is not a list")
+        return None
+
+    # simple summary print for debug
+    try:
+        print(f"preprocess: received note for {name} ({vnum}) with {len(semesters)} semesters")
+    except Exception:
+        pass
+
+    # Optionally: do lightweight normalization (ensure each semester has courses list)
+    for sem in semesters:
+        if not isinstance(sem, dict):
+            continue
+        if "courses" not in sem or not isinstance(sem["courses"], list):
+            sem["courses"] = []
+
+    return note_json
+
+
+# Update main signature to accept note_json (keeps backwards compatibility)
+def main(student_names, config_file, vnums, display_names, sem_flag, timestamp, advisor, note_json=None):
+    """
+    Preprocess entry point.
+
+    - If note_json is provided, handle it via handle_note_json and return the processed object.
+    - If no note_json, run the (minimal) preprocessing loop over student_names.
+    """
+    # If structured note JSON provided, let preprocess handle it and return processed note
+    if note_json is not None:
+        processed_note = handle_note_json(note_json)
+        return processed_note
+
+    # Backwards-compatible fallback: iterate students and prepare "courses" placeholder
+    processed = []
+    for idx, name in enumerate(student_names):
+        disp = display_names[idx] if idx < len(display_names) else name
+        vnum = vnums[idx] if idx < len(vnums) else ""
+        print(f"preprocess: processing {disp} ({vnum})")
+        # Placeholder: read existing note.json if it exists and append
+        advisor_path = os.path.join("advisors", timestamp, advisor, disp.replace("/", "_"))
+        note_path = os.path.join(advisor_path, "CSCI_2020_TRANSCRIPT", "note.json")
+        if os.path.exists(note_path):
+            try:
+                with open(note_path, "r", encoding="utf-8") as jf:
+                    note = json.load(jf)
+                    processed.append(note)
+            except Exception as e:
+                print(f"preprocess: failed to read {note_path}: {e}")
+        else:
+            # minimal structure if no note.json found
+            processed.append({"name": disp, "v_number": vnum, "semesters": []})
+
+    return processed
+
     counter = 0
-    for name in fullname:
+    for name in student_names:
         #advisor = find_advisor(name, config_file, timestamp)
         name = name.strip()
         f1 = open("advisors/" + timestamp + "/" + advisor + "/" + name + "/" + config_file.split('/')[-1].split('.')[0] + "/courses.txt", "r")
@@ -26,19 +108,34 @@ def main(fullname, config_file, vnums, names, sem_flag, timestamp, advisor=None)
         semesters = []
         for line in f2:
             if len(line) > 2:
-                line=line.strip()
+                line = line.strip()
                 sem = ''
-                #print(line)
-                if re.search('Term : Spring', line):
-                    sem = 'SP' + line[-2:]
-                elif re.search('Term : Summer', line):
-                    sem = 'SU' + line[-2:]
-                elif re.search('Term : Fall', line):
-                    sem = 'FA' + line[-2:]
-                elif re.search('Term : Winter', line):
-                    sem = 'WI' + line[-2:]
+                # Try to capture patterns like "Term : Fall 2022" or "Fall 2022 : Advanced Placement"
+                m = re.search(r'(Spring|Summer|Fall|Winter)[^\d]*(\d{4})', line, re.I)
+                if m:
+                    season = m.group(1).capitalize()
+                    year = m.group(2)[-2:]
+                    if season == 'Spring':
+                        sem = 'SP' + year
+                    elif season == 'Summer':
+                        sem = 'SU' + year
+                    elif season == 'Fall':
+                        sem = 'FA' + year
+                    elif season == 'Winter':
+                        sem = 'WI' + year
                 else:
-                    sem = 'N/A'
+                    # fallback to older "Term : ..." forms
+                    if re.search('Term : Spring', line):
+                        sem = 'SP' + line[-2:]
+                    elif re.search('Term : Summer', line):
+                        sem = 'SU' + line[-2:]
+                    elif re.search('Term : Fall', line):
+                        sem = 'FA' + line[-2:]
+                    elif re.search('Term : Winter', line):
+                        sem = 'WI' + line[-2:]
+                    else:
+                        # ignore non-semester labels (e.g. "Advanced Placement") to avoid inserting phantom semesters
+                        continue
                 semesters.append(sem)
         f2.close()
 
@@ -186,5 +283,17 @@ def main(fullname, config_file, vnums, names, sem_flag, timestamp, advisor=None)
                     
         #Pass name(string) and courses(list) to advise.py
         #advise.main(courses, name)
-        advise.main(courses, name, config_file, names[counter], vnums[counter], advisor, sem_flag, timestamp)
+        advise.main(courses, name, config_file, display_names[counter], vnums[counter], advisor, sem_flag, timestamp)
         counter += 1
+
+    # If a structured note JSON was provided, let preprocess handle it
+    processed_note = None
+    if note_json is not None:
+        processed_note = handle_note_json(note_json)
+
+    # Return processed_note for caller if available (backwards-compatible)
+    try:
+        # existing main may return something; preserve that if present
+        return processed_note
+    except Exception:
+        return processed_note

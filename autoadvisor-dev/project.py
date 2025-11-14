@@ -13,12 +13,13 @@ from tkinter.ttk import *
 from tkinter import messagebox
 from tkinter.filedialog import askopenfilename
 from datetime import datetime
-import os #used for read/write to files
-import re #used for regular expressions
-import sys #used to stop execution under certain circumstances
-import preprocess
+
+import os
+import re
 import json
-from selenium.common.exceptions import TimeoutException
+import time
+
+import preprocess
 
 version = "2.4.4-Student"
 
@@ -409,98 +410,264 @@ def create_file_path(fullname ,path, filename, file_type, array):
 
 
 def create_note_files(path, name, vnumber, advisor):
-    """Generate a JSON note and a text note summarizing the student's transcript.
-    Expects files 'courses.txt' and 'semesters.txt' in the given path.
+    """Read courses.txt / semesters.txt in path, build structured JSON (courses as objects) and note.txt.
+    Returns the JSON dict.
     """
-    courses_path = os.path.join(path, 'courses.txt')
-    semesters_path = os.path.join(path, 'semesters.txt')
-    note_json_path = os.path.join(path, 'note.json')
-    note_txt_path = os.path.join(path, 'note.txt')
+    courses_path = os.path.join(path, "courses.txt")
+    semesters_path = os.path.join(path, "semesters.txt")
+    note_json_path = os.path.join(path, "note.json")
+    note_txt_path = os.path.join(path, "note.txt")
 
+    # read semester descriptions
     semesters = []
-    # read semesters file if present
     if os.path.exists(semesters_path):
-        with open(semesters_path, 'r', encoding='utf-8') as f:
-            sem_lines = [l.strip() for l in f.readlines()]
-            # group by '-' separators
+        with open(semesters_path, "r", encoding="utf-8") as f:
             curr = []
-            for line in sem_lines:
-                if line == '-' or line == '':
+            for ln in f:
+                ln = ln.strip()
+                if ln == "-" or ln == "":
                     if curr:
-                        semesters.append(' '.join(curr).strip())
+                        semesters.append(" ".join(curr).strip())
                         curr = []
                 else:
-                    curr.append(line)
+                    curr.append(ln)
             if curr:
-                semesters.append(' '.join(curr).strip())
+                semesters.append(" ".join(curr).strip())
 
-    # read courses and group into semesters by '-' marker
+    # read course raw lines and group into semester buckets (preserve original grouping)
     sem_courses = []
     if os.path.exists(courses_path):
-        with open(courses_path, 'r', encoding='utf-8') as f:
-            lines = [l.strip() for l in f.readlines()]
+        with open(courses_path, "r", encoding="utf-8") as f:
             current = []
-            for line in lines:
-                if line == '-' or line == '':
+            for ln in f:
+                ln = ln.strip()
+                if ln == "-" or ln == "":
                     if current:
                         sem_courses.append(current.copy())
                         current = []
                 else:
-                    # store raw course string
-                    current.append(line)
+                    current.append(ln)
             if current:
                 sem_courses.append(current.copy())
 
-    # assign human-friendly semester labels (Freshman/Sophomore/Junior/Senior)
+    # regex for compact semester codes like FA23, SP2024, etc.
+    semcode_re = re.compile(r"\b(?:FA|SP|SU|WI)\s?\d{2,4}\b", re.IGNORECASE)
+
+    def parse_course_line(raw):
+        """Return a course object. Store original raw line in notes."""
+        parsed = {
+            "course_code": "",
+            "name": "",
+            "grade": "",
+            "credits": "",
+            "semester": "",
+            "notes": ""
+        }
+        if not raw or not raw.strip():
+            return parsed
+
+        parsed["notes"] = raw  # keep raw line in notes
+
+        # prefer dash-separated format: CODE - NAME - GRADE - CREDITS - SEM - NOTES
+        if " - " in raw:
+            parts = [p.strip() for p in raw.split(" - ")]
+            if len(parts) >= 1:
+                parsed["course_code"] = parts[0]
+            if len(parts) >= 2:
+                parsed["name"] = parts[1]
+            if len(parts) >= 3:
+                parsed["grade"] = parts[2]
+            if len(parts) >= 4:
+                parsed["credits"] = parts[3]
+            if len(parts) >= 5:
+                parsed["semester"] = parts[4]
+            if len(parts) >= 6:
+                # preserve any trailing pieces in notes as well
+                parsed["notes"] = parsed["notes"] + " | " + " - ".join(parts[5:]).strip()
+            # detect compact code inside semester field or raw
+            m = semcode_re.search(parsed.get("semester", "") or raw)
+            if m:
+                parsed["_sem_code"] = m.group(0).upper().replace(" ", "")
+            return parsed
+
+        # fallback: token heuristic (look for credits like 3.000)
+        parts = raw.split()
+        credits_idx = None
+        for i, p in enumerate(parts[::-1]):
+            if re.match(r"^\d+\.\d{3}$", p):
+                credits_idx = len(parts) - 1 - i
+                break
+        if credits_idx is not None:
+            parsed["credits"] = parts[credits_idx]
+            if credits_idx - 1 >= 0:
+                parsed["grade"] = parts[credits_idx - 1]
+            if len(parts) >= 2:
+                parsed["course_code"] = f"{parts[0]} {parts[1]}"
+                parsed["name"] = " ".join(parts[2: max(2, credits_idx - 1)]).strip()
+            else:
+                parsed["name"] = " ".join(parts[:credits_idx - 1]).strip()
+
+        # detect compact semester code anywhere in raw (FA23, SP24, etc.)
+        m = semcode_re.search(raw)
+        if m:
+            parsed["_sem_code"] = m.group(0).upper().replace(" ", "")
+
+        return parsed
+
+    # Build semester labels (two per academic year)
+    label_names = ["Freshman", "Sophomore", "Junior", "Senior"]
+    bucket_count = max(len(sem_courses), len(semesters), 1)
     labels = []
-    label_names = ['Freshman', 'Sophomore', 'Junior', 'Senior']
-    for i in range(len(sem_courses)):
-        year = i // 2  # two semesters per academic year
+    for i in range(bucket_count):
+        year = i // 2
         part = (i % 2) + 1
-        base = label_names[year] if year < len(label_names) else f'Year{year+1}'
+        base = label_names[year] if year < len(label_names) else f"Year{year+1}"
         labels.append(f"{base} {part}")
 
-    # build JSON structure
+    # Prepare buckets initialized with descriptions if available
+    sem_buckets = []
+    for i in range(len(labels)):
+        sem_buckets.append({
+            "label": labels[i],
+            "description": semesters[i] if i < len(semesters) else "",
+            "courses": []
+        })
+
+    # Helper: try to map compact code (e.g., FA23) to bucket index using descriptions/labels
+    def sem_code_to_index(code):
+        if not code:
+            return None
+        code = code.upper()
+        # normalize season/year tokens
+        season_map = {"FA": "FALL", "SP": "SPRING", "SU": "SUMMER", "WI": "WINTER"}
+        season = None
+        year = None
+        m = re.match(r"^(FA|SP|SU|WI)(\d{2,4})$", code)
+        if m:
+            season = season_map.get(m.group(1), None)
+            year = m.group(2)
+            if len(year) == 2:
+                year4 = "20" + year
+            else:
+                year4 = year
+        else:
+            year4 = None
+
+        for idx, sem in enumerate(sem_buckets):
+            desc = (sem.get("description") or "").upper()
+            label = (sem.get("label") or "").upper()
+            # direct match of code in desc/label
+            if code in desc or code in label:
+                return idx
+            if season:
+                if season in desc:
+                    # check year variants
+                    if year and (year in desc or (year4 and year4 in desc)):
+                        return idx
+                    # if no year present, match season only
+                    if not year:
+                        return idx
+        return None
+
+    # Assign blocks to buckets using block-level heuristics:
+    # If number of blocks equals number of buckets -> map by index.
+    # Else, for each block try sem_code in any course -> sem_code_to_index.
+    # Else try to match season/year words from semester descriptions.
+    # Else assign to next available bucket sequentially.
+    block_to_bucket = {}
+    num_blocks = len(sem_courses)
+    next_seq_bucket = 0
+
+    for b_idx, block in enumerate(sem_courses):
+        mapped = None
+        # 1) If any course in block contains sem_code that maps -> use it
+        for raw in block:
+            m = semcode_re.search(raw)
+            if m:
+                idx = sem_code_to_index(m.group(0).upper().replace(" ", ""))
+                if idx is not None:
+                    mapped = idx
+                    break
+        if mapped is None:
+            # 2) try to detect season/year words in block text that match a semester description
+            block_text = " ".join(block).upper()
+            for idx, sem in enumerate(sem_buckets):
+                desc = (sem.get("description") or "").upper()
+                if desc and desc in block_text:
+                    mapped = idx
+                    break
+            # 3) if counts align, map by index
+            if mapped is None and num_blocks == len(sem_buckets):
+                mapped = b_idx
+        if mapped is None:
+            # 4) fallback sequential next available (first bucket with no courses yet or next_seq_bucket)
+            # prefer bucket with same label if possible; otherwise use next_seq_bucket
+            for idx in range(len(sem_buckets)):
+                if len(sem_buckets[idx]["courses"]) == 0:
+                    mapped = idx
+                    break
+            if mapped is None:
+                mapped = min(next_seq_bucket, len(sem_buckets) - 1)
+        block_to_bucket[b_idx] = mapped
+        # advance next_seq_bucket just after mapped to reduce bunching
+        next_seq_bucket = min(mapped + 1, len(sem_buckets) - 1)
+
+    # Now parse and assign each course in each block; allow item-level sem_code to override block mapping
+    for b_idx, block in enumerate(sem_courses):
+        target_idx = block_to_bucket.get(b_idx, 0)
+        for raw in block:
+            p = parse_course_line(raw)
+            # item-level override
+            if p.get("_sem_code"):
+                override_idx = sem_code_to_index(p.get("_sem_code"))
+                if override_idx is not None:
+                    target_idx = override_idx
+            # ensure target_idx valid
+            if target_idx >= len(sem_buckets):
+                target_idx = len(sem_buckets) - 1
+            # ensure semester label field present
+            if not p.get("semester"):
+                p["semester"] = sem_buckets[target_idx].get("label", "")
+            p.pop("_sem_code", None)
+            sem_buckets[target_idx]["courses"].append(p)
+
+    # If there were no grouped blocks but sem_courses empty, still check for semesters list to create empties
+    if not sem_courses and semesters:
+        # ensure sem_buckets already created above
+        pass
+
+    # Build final data
     data = {
-        'name': name,
-        'v_number': vnumber,
-        'advisor': advisor,
-        'semesters': []
+        "name": name,
+        "v_number": vnumber,
+        "advisor": advisor,
+        "semesters": sem_buckets
     }
 
-    for idx, courses in enumerate(sem_courses):
-        sem_label = labels[idx] if idx < len(labels) else f'Semester {idx+1}'
-        sem_info = {
-            'label': sem_label,
-            'description': semesters[idx] if idx < len(semesters) else '',
-            'courses': courses
-        }
-        data['semesters'].append(sem_info)
-
-    # write json
+    # write JSON
     try:
-        with open(note_json_path, 'w', encoding='utf-8') as jf:
-            json.dump(data, jf, indent=2)
+        with open(note_json_path, "w", encoding="utf-8") as jf:
+            json.dump(data, jf, indent=2, ensure_ascii=False)
         print(f"Wrote JSON note to {note_json_path}")
     except Exception as e:
         print(f"Failed to write JSON note: {e}")
 
     # write plain text note
     try:
-        with open(note_txt_path, 'w', encoding='utf-8') as tf:
-            tf.write(f"Name: {name}\n")
-            tf.write(f"V-Number: {vnumber}\n")
-            tf.write(f"Advisor: {advisor}\n\n")
+        with open(note_txt_path, "w", encoding="utf-8") as tf:
+            tf.write(f"Name: {name}\nV-Number: {vnumber}\nAdvisor: {advisor}\n\n")
             tf.write('Transcripts / Semesters:\n')
             for sem in data['semesters']:
-                tf.write(f"{sem['label']}: {sem['description']}\n")
-                for c in sem['courses']:
-                    tf.write(f"  - {c}\n")
+                tf.write(f"{sem.get('label','')}: {sem.get('description','')}\n")
+                for c in sem.get('courses', []):
+                    tf.write(f"  - {c.get('course_code','')} {c.get('name','')}\n")
+                    tf.write(f"      grade: {c.get('grade','')}, credits: {c.get('credits','')}, notes: {c.get('notes','')}\n")
                 tf.write('\n')
         print(f"Wrote text note to {note_txt_path}")
     except Exception as e:
         print(f"Failed to write text note: {e}")
-        
+
+    return data
 #Above can stay Global
 # MAIN EXECUTION STARTS HERE
 #Gets student login credentials
@@ -656,30 +823,31 @@ path = "advisors/" + timestamp + "/" + advisor + "/" + student_name.strip() + '/
 build_path(path, student_name.strip())
 success = build_files(path, driver, student_name.strip())
 
-if not success:
-    try:
-        driver.close()
-    except Exception:
-        pass
-else:
-    try:
-        create_note_files(path, username.strip(), username.strip(), advisor)
-    except Exception as e:
-        print(f"Error creating note files: {e}")
+note_data = None
+try:
+    note_data = create_note_files(path, student_name.strip(), vnumber, advisor)
+except Exception as e:
+    print(f"create_note_files failed: {e}")
 
-driver.quit()
+try:
+    driver.quit()
+except Exception:
+    pass
 
-#Change username to V-number for 3rd Element
-# --- Pass actual scraped data to preprocess.py ---
-preprocess.main(
-    [student_name],
-    config_file,
-    [vnumber],
-    [student_name],
-    sem_flag,
-    timestamp,
-    advisor  
-)
+try:
+    processed_note = preprocess.main(
+        [student_name],
+        config_file,
+        [vnumber],
+        [student_name],
+        sem_flag,
+        timestamp,
+        advisor,
+        note_json=note_data
+    )
+    print(f"preprocess returned: {'present' if processed_note else 'none'}")
+except Exception as e:
+    print(f"Error calling preprocess.main: {e}")
+    processed_note = None
 
 
- 

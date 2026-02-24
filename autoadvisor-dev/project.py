@@ -7,224 +7,116 @@ from selenium.common.exceptions import NoSuchElementException, SessionNotCreated
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-import tkinter #GUI
-from tkinter import *
-from tkinter.ttk import *
-from tkinter import messagebox
-from tkinter.filedialog import askopenfilename
-from datetime import datetime
-
 import os
 import re
 import json
 import time
+from datetime import datetime
 
-import preprocess
+#CLI helper (replaces tkinter GUI usage)
+import argparse
+import getpass
+import sys
 
-version = "2.4.4-Student"
-
-#Get Rid of Tkinter so it can be ran from the terminal
-
-
-#Class to hold student login info for session
 class student_credentials():
-    #Opens a window and prompts user to select config file and to log in
-    def greeting_window (self, greeting, filename):
-        portal = Tk()
-        portal.title("Student Auto Advisor: Home")
-        is_current_sem = BooleanVar(portal, value = self.current_sem)
-        welcome = Label(portal, text = greeting)
-        portal.after(1, lambda: portal.focus_force())
-        
-        #if no configuration file is selected, prompt user for config file
-        if len(filename) == 0 or not re.search('.xlsx$', filename):
-            config = Button(portal, text="Set Configuration File", command = lambda:[portal.destroy(), self.set_config()])
-            portal.bind('<Return>', lambda x:[portal.destroy(), self.set_config()])
-            welcome.pack(side = TOP)
-            config.pack(side = BOTTOM)
-        #if a config file has be selected, prompt user to log in
-        else:
-            login = Button(portal, text="Log In", command = lambda:[portal.destroy(), self.click_login()])
-            config = Button(portal, text="Change Configuration File", command = lambda:[portal.destroy(), self.set_config()])
-            sem_btn = Checkbutton(portal, text="Toggle on if planning for Current Semester", variable = is_current_sem, command = lambda:[self.toggle_sem(is_current_sem.get())])
-            portal.bind('<Return>', lambda x:[portal.destroy(), self.click_login()])
-            config.pack(side = BOTTOM)
-            welcome.pack(side = TOP)
-            login.pack(side = BOTTOM)
-            sem_btn.pack(side = TOP, expand = True)
-        
-        portal.mainloop()
+    """
+    Minimal CLI-compatible credentials wrapper used by the rest of project.py.
+    Keeps method names expected by existing code.
+    """
+    def __init__(self):
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--config", "-c", dest="config", default="", help="Path to config .xlsx file")
+        parser.add_argument("--user", "-u", dest="user", default="", help="Email local-part or full email")
+        parser.add_argument("--pass", "-p", dest="passwd", default="", help="Password (avoid on CLI)")
+        parser.add_argument("--verify", dest="verify_method", default="Okta Push Notification", help="Verify method")
+        parser.add_argument("--current-sem", dest="current_sem", action="store_true", help="Toggle current semester flag")
+        args, _ = parser.parse_known_args()
 
-    def toggle_sem (self, is_current_sem):
-        if is_current_sem:
-            self.current_sem = True
-        else:
-            self.current_sem = False
+        self.filename = args.config or ""
+        self.username = args.user.strip() or ""
+        if self.username and "@" not in self.username:
+            self.username = self.username + "@students.vsu.edu"
+        self.password = args.passwd or ""
+        if not self.username:
+            local = input("Email local-part (jdoe) or full email: ").strip()
+            if local:
+                if "@" in local:
+                    self.username = local
+                else:
+                    self.username = local + "@students.vsu.edu"
+        if not self.password:
+            try:
+                self.password = getpass.getpass(prompt="Enter your password: ")
+            except Exception:
+                self.password = input("Enter your password: ")
 
-    def get_sem_flag(self):
-        return self.current_sem
+        try:
+            self.student_id = re.search(r"^([^@]+)", self.username).group(1)
+        except Exception:
+            self.student_id = ""
+        self.pin = ""
+        self.login_count = 0
+        self.current_sem = bool(args.current_sem)
+        self.verify_method = args.verify_method or "Okta Push Notification"
 
-    #function that grabs file path of config file
     def set_config(self):
-        file_name = askopenfilename(title = 'Select Config File', filetypes = [('Excel Files','*.xlsx')])
-        self.filename = file_name
-        self.greeting_window(self.greeting, self.filename)               
+        cfg = input("Enter path to configuration .xlsx file: ").strip()
+        if cfg:
+            self.filename = cfg
 
-    #function that returns config file path
     def get_config(self):
         return self.filename
 
-    #method to grab student login info
-    def click_login(self):
-        def on_option_value_change(*args):
-            self.set_verify_method(option.get())
-        #opens a window to grab student login info
-        login = Tk()
-        login.title("Student Auto Advisor: Login")
-        auth_options = ["Google Authenticator", "Okta 2FA Code", "Okta Push Notification"]
-        welcome = Label(login, text = "Enter your E-Mail and Password:")
-        login.after(1, lambda: login.focus_force())
-        Label(login, text='E-mail').grid(row=1)
-        Label(login, text='Password').grid(row=2)
-        Label(login, text="@students.vsu.edu").grid(row=1, column = 2)
-        Label(login, text="Auth Method:").grid(row = 3)
-        uid = Entry(login, width = 15)
-        pwd = Entry(login, show ="*", width = 25)
-        option = StringVar(value=self.get_verify_method())
-        option.trace_add("write", on_option_value_change)
-        auth_menu = OptionMenu(login, option, self.get_verify_method(), *auth_options)
-        #when submit button is clicked, it sends credentials to Banner Portal
-        submit = Button(login, text='Submit', command = lambda:[self.set_credentials(uid, pwd), self.set_verify_method(option.get()), login.destroy()])
-        back = Button(login, text='Return', command = lambda:[login.destroy(), self.greeting_window(self.greeting, self.filename)])
-        login.bind('<Return>', lambda x:[self.set_credentials(uid, pwd), login.destroy()])
-        welcome.grid(row = 0, columnspan = 3)
-        uid.grid(row = 1, column = 1)
-        pwd.grid(row = 2, column = 1, columnspan = 2)
-        auth_menu.grid(row = 3, column = 1, columnspan = 2)
-        submit.grid(row = 4, column = 1)
-        back.grid(row = 4, column = 2)
-        
-    #sets student's login info
-    def set_credentials(self, uid, pwd):
-        self.username = uid.get() + "@students.vsu.edu"
-        self.password = pwd.get()
-        self.student_id = uid.get()  # Store the V-number for later use
-        
-    #returns login info
+    def set_credentials(self, uid, pwd=None):
+        if hasattr(uid, "get"):
+            user_val = uid.get()
+        else:
+            user_val = uid
+        if hasattr(pwd, "get"):
+            pwd_val = pwd.get()
+        else:
+            pwd_val = pwd or ""
+        user_val = (user_val or "").strip()
+        if user_val and "@" not in user_val:
+            user_val = user_val + "@students.vsu.edu"
+        self.username = user_val
+        if pwd_val:
+            self.password = pwd_val
+        try:
+            self.student_id = re.search(r"^([^@]+)", self.username).group(1)
+        except Exception:
+            self.student_id = ""
+
     def get_credentials(self):
         return self.username, self.password
 
     def get_student_id(self):
         return self.student_id
 
-    #warns the user about login failures
-    def login_warning(self):
-        warn = Tk()
-        warn.title("Warning!")
-        warning = Label(text = "Warning! You have failed to login 3 times now. Please ensure that you enter your information correctly.")
-        warn.after(1, lambda: warn.focus_force())
-        back = Button(warn, text='Return', command = lambda:[warn.destroy(), self.greeting_window(self.greeting, self.filename)])
-        warn.bind('<Return>', lambda x:[warn.destroy(), self.greeting_window(self.greeting, self.filename)])
-        warning.pack(side = TOP)
-        back.pack(side = TOP)
-        warn.mainloop()
+    def get_sem_flag(self):
+        return self.current_sem
 
-    #terminates the program if user fails to log in 4 times
-    def login_timeout(self):
-        terminate = Tk()
-        terminate.title("Too Many Login Attempts")
-        terminate.after(1, lambda: terminate.focus_force())
-        message = Label(text = "You have attempted too many failed login attempts. To prevent account lockout, please try again later.")
-        end = Button(terminate, text='Exit', command = lambda:[terminate.destroy(), driver.quit(), sys.exit("Program Terminated: Too Many Login Attempts!")])
-        terminate.bind('<Return>', lambda x:[terminate.destroy(), driver.quit(), sys.exit("Program Terminated: Too Many Login Attempts!")])
-        message.pack(side = TOP)
-        end.pack(side = TOP)
-        terminate.mainloop()
+    def toggle_sem(self, flag):
+        self.current_sem = bool(flag)
 
-    #method that prompts user to correct invalid login info
-    def invalid_creds(self):
-        self.greeting = 'Invalid login credentials!'
-        self.login_count += 1
-        if self.login_count < 3:
-            self.greeting_window(self.greeting, self.filename)
-        elif self.login_count == 3:
-            self.login_warning()
-        else:
-            self.login_timeout()
-
-    #UPDATED: Method for students to access their own transcript
-    def access_student_services(self):
-        """Navigate to student services instead of faculty services"""
-        return True
-
-    #UPDATED: Warns the user if Edge webdriver is not installed or up to date
-    def update_webdriver(self):
-        update = Tk()
-        update.title('Update Edge Webdriver')
-        update.after(1, lambda: update.focus_force())
-        msg = Label(update, text="Please update Edge webdriver!")
-        ok_btn = Button(update, text="OK", command = lambda:[update.destroy(), sys.exit('Program Terminated')])
-        update.bind('<Return>', update.destroy)
-        msg.pack(side = TOP)
-        ok_btn.pack(side = BOTTOM)
-        update.mainloop()
-    
-    #Gets 2FA input from user    
-    def get_pin(self):
-        pinget = Tk()
-        auth_method = self.get_verify_method()
-        match auth_method:
-            case "Google Authenticator":
-                pinget.title('Google Auth 2FA Code')
-                pinget.after(1, lambda: pinget.focus_force())
-                msg = Label(pinget, text='Enter 2FA Code:')
-                code = Entry(pinget)
-                submit = Button(pinget, text='Submit', command = lambda:[self.set_pin(code), pinget.destroy()])
-                pinget.bind('<Return>', lambda x:[self.set_pin(code), pinget.destroy()])
-                msg.pack(side = TOP)
-                code.pack()
-                submit.pack(side = BOTTOM)
-                pinget.mainloop()
-            case "Okta 2FA Code":
-                pinget.title('Okta 2FA Code')
-                pinget.after(1, lambda: pinget.focus_force())
-                msg = Label(pinget, text='Enter 2FA Code:')
-                code = Entry(pinget)
-                submit = Button(pinget, text='Submit', command = lambda:[self.set_pin(code), pinget.destroy()])
-                pinget.bind('<Return>', lambda x:[self.set_pin(code), pinget.destroy()])
-                msg.pack(side = TOP)
-                code.pack()
-                submit.pack(side = BOTTOM)
-                pinget.mainloop()
-            case "Okta Push Notification":
-                pinget.destroy()
-       
-    #Sets 2FA code for retrieval    
     def set_pin(self, pin):
-        self.pin = pin.get()
-    
-    #Fetches stored 2FA code
+        if hasattr(pin, "get"):
+            self.pin = pin.get()
+        else:
+            self.pin = pin
+
     def return_pin(self):
         return self.pin
-    
+
     def set_verify_method(self, method):
         self.verify_method = method
-        
+
     def get_verify_method(self):
         return self.verify_method
 
-    #instantiates class
-    def __init__(self):
-        self.username = ""
-        self.password = ""
-        self.student_id = ""
-        self.filename = ""
-        self.pin = ""
-        self.greeting = 'Welcome to Student Auto-Advisor!'
-        self.login_count = 0
-        self.current_sem = False
-        self.verify_method = "Okta Push Notification"
-        self.greeting_window(self.greeting, self.filename)
+#Get Rid of Tkinter so it can be ran from the terminal
+
+version = "2.4.4-Student"
 
 #method to return appropriate value for term dropdown
 def get_timecode():
@@ -410,15 +302,18 @@ def create_file_path(fullname ,path, filename, file_type, array):
 
 
 def create_note_files(path, name, vnumber, advisor):
-    """Read courses.txt / semesters.txt in path, build structured JSON (courses as objects) and note.txt.
-    Returns the JSON dict.
+    """
+    Build structured note JSON and text file from courses.txt and semesters.txt.
+    Extract transfer-credit blocks into top-level "transfer_credits" so they don't
+    become a phantom semester (e.g., Advanced Placement).
+    Returns the data dict.
     """
     courses_path = os.path.join(path, "courses.txt")
     semesters_path = os.path.join(path, "semesters.txt")
     note_json_path = os.path.join(path, "note.json")
     note_txt_path = os.path.join(path, "note.txt")
 
-    # read semester descriptions
+    # Read semester descriptions
     semesters = []
     if os.path.exists(semesters_path):
         with open(semesters_path, "r", encoding="utf-8") as f:
@@ -434,7 +329,7 @@ def create_note_files(path, name, vnumber, advisor):
             if curr:
                 semesters.append(" ".join(curr).strip())
 
-    # read course raw lines and group into semester buckets (preserve original grouping)
+    # Read course raw lines and group into semester buckets
     sem_courses = []
     if os.path.exists(courses_path):
         with open(courses_path, "r", encoding="utf-8") as f:
@@ -450,11 +345,10 @@ def create_note_files(path, name, vnumber, advisor):
             if current:
                 sem_courses.append(current.copy())
 
-    # regex for compact semester codes like FA23, SP2024, etc.
+    # Parser (keeps raw line in notes field)
     semcode_re = re.compile(r"\b(?:FA|SP|SU|WI)\s?\d{2,4}\b", re.IGNORECASE)
 
     def parse_course_line(raw):
-        """Return a course object. Store original raw line in notes."""
         parsed = {
             "course_code": "",
             "name": "",
@@ -466,9 +360,8 @@ def create_note_files(path, name, vnumber, advisor):
         if not raw or not raw.strip():
             return parsed
 
-        parsed["notes"] = raw  # keep raw line in notes
+        parsed["notes"] = raw
 
-        # prefer dash-separated format: CODE - NAME - GRADE - CREDITS - SEM - NOTES
         if " - " in raw:
             parts = [p.strip() for p in raw.split(" - ")]
             if len(parts) >= 1:
@@ -482,15 +375,12 @@ def create_note_files(path, name, vnumber, advisor):
             if len(parts) >= 5:
                 parsed["semester"] = parts[4]
             if len(parts) >= 6:
-                # preserve any trailing pieces in notes as well
                 parsed["notes"] = parsed["notes"] + " | " + " - ".join(parts[5:]).strip()
-            # detect compact code inside semester field or raw
             m = semcode_re.search(parsed.get("semester", "") or raw)
             if m:
                 parsed["_sem_code"] = m.group(0).upper().replace(" ", "")
             return parsed
 
-        # fallback: token heuristic (look for credits like 3.000)
         parts = raw.split()
         credits_idx = None
         for i, p in enumerate(parts[::-1]):
@@ -507,12 +397,59 @@ def create_note_files(path, name, vnumber, advisor):
             else:
                 parsed["name"] = " ".join(parts[:credits_idx - 1]).strip()
 
-        # detect compact semester code anywhere in raw (FA23, SP24, etc.)
         m = semcode_re.search(raw)
         if m:
             parsed["_sem_code"] = m.group(0).upper().replace(" ", "")
 
         return parsed
+
+    # Detect transfer-credit blocks and extract them
+    # Strict transfer detection: match only strong standalone tokens (word boundaries)
+    transfer_pattern = re.compile(r'\b(TR|TRANSFER|ADVANCED PLACEMENT|CREDIT BY EXAM|CBE|CLEP|EXAM|AP)\b|\(TR\)', re.I)
+    transfer_blocks = set()
+    for b_idx, block in enumerate(sem_courses):
+        is_transfer = False
+        # 1) semester description explicitly indicates transfer -> mark
+        if b_idx < len(semesters):
+            desc = semesters[b_idx] or ""
+            if transfer_pattern.search(desc):
+                is_transfer = True
+        # 2) otherwise require a strong per-line signal in a majority of block lines
+        if not is_transfer:
+            if block:
+                transfer_line_count = sum(1 for raw in block if transfer_pattern.search(raw or ""))
+                # require at least half the lines (or 1 if single-line block) to match
+                threshold = max(1, (len(block) + 1) // 2)
+                if transfer_line_count >= threshold:
+                    is_transfer = True
+        if is_transfer:
+            transfer_blocks.add(b_idx)
+
+    # Build transfer_credits list and filter out those blocks from sem_courses and semesters
+    transfer_credits = []
+    for b_idx in sorted(transfer_blocks):
+        if b_idx < len(sem_courses):
+            for raw in sem_courses[b_idx]:
+                obj = parse_course_line(raw)
+                # mark as transfer; set semester to a clear label
+                obj["semester"] = "Transfer Credit"
+                transfer_credits.append(obj)
+
+    # Rebuild sem_courses and semesters skipping transfer blocks
+    new_sem_courses = []
+    for idx, block in enumerate(sem_courses):
+        if idx in transfer_blocks:
+            continue
+        new_sem_courses.append(block)
+    new_semesters = []
+    for idx, desc in enumerate(semesters):
+        if idx in transfer_blocks:
+            continue
+        new_semesters.append(desc)
+
+    # Replace with filtered lists for the rest of processing
+    sem_courses = new_sem_courses
+    semesters = new_semesters
 
     # Build semester labels (two per academic year)
     label_names = ["Freshman", "Sophomore", "Junior", "Senior"]
@@ -533,54 +470,36 @@ def create_note_files(path, name, vnumber, advisor):
             "courses": []
         })
 
-    # Helper: try to map compact code (e.g., FA23) to bucket index using descriptions/labels
+    # Helper to map sem code (e.g. FA23) to bucket index
     def sem_code_to_index(code):
         if not code:
             return None
         code = code.upper()
-        # normalize season/year tokens
         season_map = {"FA": "FALL", "SP": "SPRING", "SU": "SUMMER", "WI": "WINTER"}
-        season = None
-        year = None
         m = re.match(r"^(FA|SP|SU|WI)(\d{2,4})$", code)
-        if m:
-            season = season_map.get(m.group(1), None)
-            year = m.group(2)
-            if len(year) == 2:
-                year4 = "20" + year
-            else:
-                year4 = year
-        else:
-            year4 = None
-
+        if not m:
+            return None
+        season = season_map.get(m.group(1))
+        year = m.group(2)
+        year4 = "20" + year if len(year) == 2 else year
         for idx, sem in enumerate(sem_buckets):
             desc = (sem.get("description") or "").upper()
             label = (sem.get("label") or "").upper()
-            # direct match of code in desc/label
             if code in desc or code in label:
                 return idx
-            if season:
-                if season in desc:
-                    # check year variants
-                    if year and (year in desc or (year4 and year4 in desc)):
-                        return idx
-                    # if no year present, match season only
-                    if not year:
-                        return idx
+            if season and season in desc:
+                if year and (year in desc or year4 in desc):
+                    return idx
+                if not year:
+                    return idx
         return None
 
-    # Assign blocks to buckets using block-level heuristics:
-    # If number of blocks equals number of buckets -> map by index.
-    # Else, for each block try sem_code in any course -> sem_code_to_index.
-    # Else try to match season/year words from semester descriptions.
-    # Else assign to next available bucket sequentially.
-    block_to_bucket = {}
-    num_blocks = len(sem_courses)
+    # Map blocks to buckets (heuristic)
+    block_count = len(sem_courses)
     next_seq_bucket = 0
-
+    block_to_bucket = {}
     for b_idx, block in enumerate(sem_courses):
         mapped = None
-        # 1) If any course in block contains sem_code that maps -> use it
         for raw in block:
             m = semcode_re.search(raw)
             if m:
@@ -589,19 +508,15 @@ def create_note_files(path, name, vnumber, advisor):
                     mapped = idx
                     break
         if mapped is None:
-            # 2) try to detect season/year words in block text that match a semester description
             block_text = " ".join(block).upper()
             for idx, sem in enumerate(sem_buckets):
                 desc = (sem.get("description") or "").upper()
                 if desc and desc in block_text:
                     mapped = idx
                     break
-            # 3) if counts align, map by index
-            if mapped is None and num_blocks == len(sem_buckets):
+            if mapped is None and block_count == len(sem_buckets):
                 mapped = b_idx
         if mapped is None:
-            # 4) fallback sequential next available (first bucket with no courses yet or next_seq_bucket)
-            # prefer bucket with same label if possible; otherwise use next_seq_bucket
             for idx in range(len(sem_buckets)):
                 if len(sem_buckets[idx]["courses"]) == 0:
                     mapped = idx
@@ -609,38 +524,37 @@ def create_note_files(path, name, vnumber, advisor):
             if mapped is None:
                 mapped = min(next_seq_bucket, len(sem_buckets) - 1)
         block_to_bucket[b_idx] = mapped
-        # advance next_seq_bucket just after mapped to reduce bunching
         next_seq_bucket = min(mapped + 1, len(sem_buckets) - 1)
 
-    # Now parse and assign each course in each block; allow item-level sem_code to override block mapping
+    # Assign items into buckets
     for b_idx, block in enumerate(sem_courses):
         target_idx = block_to_bucket.get(b_idx, 0)
         for raw in block:
             p = parse_course_line(raw)
-            # item-level override
             if p.get("_sem_code"):
                 override_idx = sem_code_to_index(p.get("_sem_code"))
                 if override_idx is not None:
                     target_idx = override_idx
-            # ensure target_idx valid
             if target_idx >= len(sem_buckets):
                 target_idx = len(sem_buckets) - 1
-            # ensure semester label field present
             if not p.get("semester"):
                 p["semester"] = sem_buckets[target_idx].get("label", "")
             p.pop("_sem_code", None)
             sem_buckets[target_idx]["courses"].append(p)
 
-    # If there were no grouped blocks but sem_courses empty, still check for semesters list to create empties
-    if not sem_courses and semesters:
-        # ensure sem_buckets already created above
-        pass
+    # Final cleanup: ensure each course has notes field and semester set
+    for sem in sem_buckets:
+        for c in sem["courses"]:
+            if "notes" not in c:
+                c["notes"] = ""
+            if not c.get("semester"):
+                c["semester"] = sem.get("label", "")
 
-    # Build final data
     data = {
         "name": name,
         "v_number": vnumber,
         "advisor": advisor,
+        "transfer_credits": transfer_credits,
         "semesters": sem_buckets
     }
 
@@ -652,10 +566,15 @@ def create_note_files(path, name, vnumber, advisor):
     except Exception as e:
         print(f"Failed to write JSON note: {e}")
 
-    # write plain text note
+    # write plain text note (transfer credits at top)
     try:
         with open(note_txt_path, "w", encoding="utf-8") as tf:
             tf.write(f"Name: {name}\nV-Number: {vnumber}\nAdvisor: {advisor}\n\n")
+            if transfer_credits:
+                tf.write("Transfer Credits:\n")
+                for c in transfer_credits:
+                    tf.write(f"  - {c.get('course_code','')} {c.get('name','')}  grade: {c.get('grade','')}, credits: {c.get('credits','')}\n")
+                tf.write("\n")
             tf.write('Transcripts / Semesters:\n')
             for sem in data['semesters']:
                 tf.write(f"{sem.get('label','')}: {sem.get('description','')}\n")

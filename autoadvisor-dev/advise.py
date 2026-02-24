@@ -723,6 +723,16 @@ def main(courses, name, config_file, fullname, vnum, advisor, sem_flag, timestam
     structure_dict_elems(srs1)
     structure_dict_elems(srs2)
 
+    print(frs1)
+    print(frs2)
+    print(sos1)
+    print(sos2)
+    print(jrs1)
+    print(jrs2)
+    print(srs1)
+    print(srs2)
+
+
     # Build note.json and note.txt for the student (inserted after structure_dict_elems block)
     try:
         sem_pairs = [

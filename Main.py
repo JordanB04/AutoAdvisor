@@ -68,70 +68,93 @@ def fetch_transcript(request: FetchTranscriptRequest):
         "message": "Session created. Submit PIN to continue."
     }
 
-def run_autoadvisor(username: str, password: str, config_path: str, advisor: str) -> Optional[Dict[str, Any]]:
+def run_autoadvisor(username: str,
+                    password: str,
+                    config_path: str,
+                    advisor: str) -> Optional[Dict[str, Any]]:
     """
-    Call project.py as subprocess to fetch and parse transcript
-    Returns the parsed note.json data
+    Invoke project.py as a subprocess and then load the resulting note.json
+    from disk.  Print the subprocess output to the terminal for debugging.
     """
-    try:
-        # Build command to run project.py
-        project_py_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "autoadvisor-dev", "project.py"))
-        
-        cmd = [
-            sys.executable,
-            project_py_path,
-            "--config", config_path,
-            "--user", username,
-            "--pass", password
-        ]
-        
-        if advisor:
-            cmd += ["--advisor", advisor]
-        
-        logger.info(f"Running: {' '.join(cmd)}")
-        
-        # Run project.py and capture output
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        
-        # Print all output to terminal
-        print("\n" + "="*100)
-        print("AUTOADVISOR SUBPROCESS OUTPUT:")
-        print("="*100)
-        print(result.stdout)
-        if result.stderr:
-            print("STDERR:", result.stderr)
-        print("="*100 + "\n")
-        
-        # Try to extract JSON from stdout (it prints at the end between === markers)
-        output = result.stdout
-        if "FINAL STUDENT TRANSCRIPT DATA - note.json" in output:
-            # Extract JSON between the === markers
-            start_marker = "FINAL STUDENT TRANSCRIPT DATA - note.json"
-            start_idx = output.find(start_marker)
-            if start_idx != -1:
-                # Find the first { after the marker
-                json_start = output.find("{", start_idx)
-                if json_start != -1:
-                    # Find the last } in the output
-                    json_end = output.rfind("}")
-                    if json_end != -1 and json_end > json_start:
-                        json_str = output[json_start:json_end+1]
-                        try:
-                            transcript_data = json.loads(json_str)
-                            logger.info("Successfully extracted transcript JSON from output")
-                            return transcript_data
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse JSON: {e}")
-        
-        logger.warning("Could not extract transcript data from subprocess output")
-        return None
-    
-    except subprocess.TimeoutExpired:
-        logger.error("AutoAdvisor process timed out after 10 minutes")
-        raise HTTPException(status_code=504, detail="AutoAdvisor processing timed out")
-    except Exception as e:
-        logger.error(f"Error running AutoAdvisor: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"AutoAdvisor error: {str(e)}")
+    project_py = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                               "autoadvisor-dev", "project.py"))
+    cmd = [sys.executable, project_py,
+           "--config", config_path,
+           "--user", username,
+           "--pass", password]
+    if advisor:
+        cmd += ["--advisor", advisor]
+
+    logger.info(f"running: {' '.join(cmd)}")
+
+    # PROMINENT AUTHENTICATION MESSAGE
+    print("\n" + "!"*100)
+    print("! AUTHENTICATION REQUIRED")
+    print("!"*100)
+    print("! A browser window will open momentarily.")
+    print("! You will be taken to the Banner Student Services login page.")
+    print("! After entering your credentials, you will be asked for a 4-digit PIN.")
+    print("! ")
+    print("! CHECK YOUR PHONE/AUTHENTICATOR APP FOR THE PIN CODE.")
+    print("! Once you receive the PIN, use it in the next API call:")
+    print("!   POST /api/submit-pin")
+    print("!   Body: {\"session_id\": \"<your-session-id>\", \"pin\": \"<4-digit-code>\"}")
+    print("! ")
+    print("! Do NOT close the browser window until the script completes.")
+    print("!"*100 + "\n")
+
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+    # echo everything to the terminal
+    print("\n" + "=" * 100)
+    print("AUTOADVISOR SUBPROCESS OUTPUT")
+    print("=" * 100)
+    print(proc.stdout)
+    if proc.stderr:
+        print("STDERR:", proc.stderr)
+    print("=" * 100 + "\n")
+
+    # now load the note.json that project.py just wrote
+    transcript_data = None
+    # try both plausible locations
+    possible_dirs = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "advisors")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                     "autoadvisor-dev", "advisors"))
+    ]
+    for advisors_dir in possible_dirs:
+        if not os.path.exists(advisors_dir):
+            continue
+        timestamps = sorted([d for d in os.listdir(advisors_dir)
+                             if os.path.isdir(os.path.join(advisors_dir, d))])
+        if not timestamps:
+            continue
+        latest_ts = timestamps[-1]
+        base = os.path.join(advisors_dir, latest_ts)
+        print(f"\n[Info] Searching for transcript data in: {base}\n")
+        for root, dirs, files in os.walk(base):
+            if "note.json" in files:
+                note_path = os.path.join(root, "note.json")
+                try:
+                    with open(note_path, "r", encoding="utf-8") as jf:
+                        transcript_data = json.load(jf)
+                    print("\n" + "="*100)
+                    print("FINAL TRANSCRIPT DATA - LOADED FROM DISK")
+                    print("="*100)
+                    print(f"Location: {note_path}\n")
+                    print(json.dumps(transcript_data, indent=2, ensure_ascii=False))
+                    print("="*100 + "\n")
+                    logger.info(f"loaded note.json from {note_path}")
+                except Exception as e:
+                    logger.error(f"failed to read {note_path}: {e}")
+                break
+        if transcript_data is not None:
+            break
+
+    if transcript_data is None:
+        logger.warning("run_autoadvisor: note.json not found, returning None")
+        print("\n[WARNING] Transcript data was not found on disk.\n")
+    return transcript_data
 
 @app.post("/api/submit-pin", response_model=TranscriptResponse)
 def submit_pin(request: PinRequest):

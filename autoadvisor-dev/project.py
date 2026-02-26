@@ -12,11 +12,11 @@ import re
 import json
 import time
 from datetime import datetime
-
-#CLI helper (replaces tkinter GUI usage)
 import argparse
 import getpass
 import sys
+
+import preprocess
 
 class student_credentials():
     """
@@ -303,17 +303,17 @@ def create_file_path(fullname ,path, filename, file_type, array):
 
 def create_note_files(path, name, vnumber, advisor):
     """
-    Build structured note JSON and text file from courses.txt and semesters.txt.
-    Extract transfer-credit blocks into top-level "transfer_credits" so they don't
-    become a phantom semester (e.g., Advanced Placement).
-    Returns the data dict.
+    Read courses.txt / semesters.txt in path, build structured JSON
+    (courses as objects) and note.txt.  No special transfer‑credit bucket;
+    every course stays in its original semester group.
+    Returns the JSON dict.
     """
     courses_path = os.path.join(path, "courses.txt")
     semesters_path = os.path.join(path, "semesters.txt")
     note_json_path = os.path.join(path, "note.json")
     note_txt_path = os.path.join(path, "note.txt")
 
-    # Read semester descriptions
+    # read semester descriptions
     semesters = []
     if os.path.exists(semesters_path):
         with open(semesters_path, "r", encoding="utf-8") as f:
@@ -329,7 +329,7 @@ def create_note_files(path, name, vnumber, advisor):
             if curr:
                 semesters.append(" ".join(curr).strip())
 
-    # Read course raw lines and group into semester buckets
+    # read course lines and group by ‘-’ separators
     sem_courses = []
     if os.path.exists(courses_path):
         with open(courses_path, "r", encoding="utf-8") as f:
@@ -345,7 +345,6 @@ def create_note_files(path, name, vnumber, advisor):
             if current:
                 sem_courses.append(current.copy())
 
-    # Parser (keeps raw line in notes field)
     semcode_re = re.compile(r"\b(?:FA|SP|SU|WI)\s?\d{2,4}\b", re.IGNORECASE)
 
     def parse_course_line(raw):
@@ -403,55 +402,7 @@ def create_note_files(path, name, vnumber, advisor):
 
         return parsed
 
-    # Detect transfer-credit blocks and extract them
-    # Strict transfer detection: match only strong standalone tokens (word boundaries)
-    transfer_pattern = re.compile(r'\b(TR|TRANSFER|ADVANCED PLACEMENT|CREDIT BY EXAM|CBE|CLEP|EXAM|AP)\b|\(TR\)', re.I)
-    transfer_blocks = set()
-    for b_idx, block in enumerate(sem_courses):
-        is_transfer = False
-        # 1) semester description explicitly indicates transfer -> mark
-        if b_idx < len(semesters):
-            desc = semesters[b_idx] or ""
-            if transfer_pattern.search(desc):
-                is_transfer = True
-        # 2) otherwise require a strong per-line signal in a majority of block lines
-        if not is_transfer:
-            if block:
-                transfer_line_count = sum(1 for raw in block if transfer_pattern.search(raw or ""))
-                # require at least half the lines (or 1 if single-line block) to match
-                threshold = max(1, (len(block) + 1) // 2)
-                if transfer_line_count >= threshold:
-                    is_transfer = True
-        if is_transfer:
-            transfer_blocks.add(b_idx)
-
-    # Build transfer_credits list and filter out those blocks from sem_courses and semesters
-    transfer_credits = []
-    for b_idx in sorted(transfer_blocks):
-        if b_idx < len(sem_courses):
-            for raw in sem_courses[b_idx]:
-                obj = parse_course_line(raw)
-                # mark as transfer; set semester to a clear label
-                obj["semester"] = "Transfer Credit"
-                transfer_credits.append(obj)
-
-    # Rebuild sem_courses and semesters skipping transfer blocks
-    new_sem_courses = []
-    for idx, block in enumerate(sem_courses):
-        if idx in transfer_blocks:
-            continue
-        new_sem_courses.append(block)
-    new_semesters = []
-    for idx, desc in enumerate(semesters):
-        if idx in transfer_blocks:
-            continue
-        new_semesters.append(desc)
-
-    # Replace with filtered lists for the rest of processing
-    sem_courses = new_sem_courses
-    semesters = new_semesters
-
-    # Build semester labels (two per academic year)
+    # build labels (Freshman 1, etc.)
     label_names = ["Freshman", "Sophomore", "Junior", "Senior"]
     bucket_count = max(len(sem_courses), len(semesters), 1)
     labels = []
@@ -461,7 +412,6 @@ def create_note_files(path, name, vnumber, advisor):
         base = label_names[year] if year < len(label_names) else f"Year{year+1}"
         labels.append(f"{base} {part}")
 
-    # Prepare buckets initialized with descriptions if available
     sem_buckets = []
     for i in range(len(labels)):
         sem_buckets.append({
@@ -470,7 +420,6 @@ def create_note_files(path, name, vnumber, advisor):
             "courses": []
         })
 
-    # Helper to map sem code (e.g. FA23) to bucket index
     def sem_code_to_index(code):
         if not code:
             return None
@@ -494,7 +443,6 @@ def create_note_files(path, name, vnumber, advisor):
                     return idx
         return None
 
-    # Map blocks to buckets (heuristic)
     block_count = len(sem_courses)
     next_seq_bucket = 0
     block_to_bucket = {}
@@ -526,7 +474,6 @@ def create_note_files(path, name, vnumber, advisor):
         block_to_bucket[b_idx] = mapped
         next_seq_bucket = min(mapped + 1, len(sem_buckets) - 1)
 
-    # Assign items into buckets
     for b_idx, block in enumerate(sem_courses):
         target_idx = block_to_bucket.get(b_idx, 0)
         for raw in block:
@@ -542,7 +489,6 @@ def create_note_files(path, name, vnumber, advisor):
             p.pop("_sem_code", None)
             sem_buckets[target_idx]["courses"].append(p)
 
-    # Final cleanup: ensure each course has notes field and semester set
     for sem in sem_buckets:
         for c in sem["courses"]:
             if "notes" not in c:
@@ -554,7 +500,6 @@ def create_note_files(path, name, vnumber, advisor):
         "name": name,
         "v_number": vnumber,
         "advisor": advisor,
-        "transfer_credits": transfer_credits,
         "semesters": sem_buckets
     }
 
@@ -566,15 +511,10 @@ def create_note_files(path, name, vnumber, advisor):
     except Exception as e:
         print(f"Failed to write JSON note: {e}")
 
-    # write plain text note (transfer credits at top)
+    # write plain text note
     try:
         with open(note_txt_path, "w", encoding="utf-8") as tf:
             tf.write(f"Name: {name}\nV-Number: {vnumber}\nAdvisor: {advisor}\n\n")
-            if transfer_credits:
-                tf.write("Transfer Credits:\n")
-                for c in transfer_credits:
-                    tf.write(f"  - {c.get('course_code','')} {c.get('name','')}  grade: {c.get('grade','')}, credits: {c.get('credits','')}\n")
-                tf.write("\n")
             tf.write('Transcripts / Semesters:\n')
             for sem in data['semesters']:
                 tf.write(f"{sem.get('label','')}: {sem.get('description','')}\n")
@@ -660,10 +600,15 @@ try:
 except TimeoutException:
     pass
 
-
+# DEBUG: Check current page after Okta auth
+print("Current URL after Okta:", driver.current_url)
+print("Current page title:", driver.title)
 
 # UPDATED: Navigate to Student Services instead of Faculty Services
+print("Waiting for Banner Student Self Service logo...")
+wait = WebDriverWait(driver, 30)
 wait.until(EC.element_to_be_clickable((By.XPATH, "//img[@alt='Banner Student Self Service logo']")))
+print("Banner logo found! Clicking...")
 driver.find_element(By.XPATH, "//img[@alt='Banner Student Self Service logo']").click()
 
 wait = WebDriverWait(driver, 10)
@@ -692,20 +637,20 @@ try:
 
     # Grab the header text
     vnum_text = vnum_element.text.strip()
-    print("✅ Raw Header Text:", vnum_text)
+    print("[OK] Raw Header Text:", vnum_text)
 
     # Example: "Student Profile – Jordan A. Broomfield (V00679148)"
     match = re.search(r"Student Profile\s*[–-]\s*(.+)\s+\((V\d+)\)", vnum_text)
     if match:
         student_name = match.group(1).strip()
         vnumber = match.group(2).strip()
-        print(f"✅ Name: {student_name}")
-        print(f"✅ V-Number: {vnumber}")
+        print(f"[OK] Name: {student_name}")
+        print(f"[OK] V-Number: {vnumber}")
     else:
-        print("⚠️ Could not parse name and V-number from:", vnum_text)
+        print("[WARNING] Could not parse name and V-number from:", vnum_text)
 
 except TimeoutException:
-    print("❌ Could not locate the Student Profile title element quickly.")
+    print("[ERROR] Could not locate the Student Profile title element quickly.")
 print(vnumber)
 
 #Navigate to Student Profile. Code Below will handle the rest.
@@ -768,5 +713,53 @@ try:
 except Exception as e:
     print(f"Error calling preprocess.main: {e}")
     processed_note = None
+
+# ALWAYS print the final transcript
+print("\n" + "="*100)
+print("FINAL STUDENT TRANSCRIPT DATA - note.json")
+print("="*100)
+
+try:
+    advisors_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "advisors"))
+    
+    if os.path.exists(advisors_dir):
+        timestamps = sorted([d for d in os.listdir(advisors_dir) 
+                           if os.path.isdir(os.path.join(advisors_dir, d))])
+        
+        if timestamps:
+            latest_timestamp = timestamps[-1]
+            timestamp_dir = os.path.join(advisors_dir, latest_timestamp)
+            
+            note_files = []
+            for root, dirs, files in os.walk(timestamp_dir):
+                if "note.json" in files:
+                    note_path = os.path.join(root, "note.json")
+                    mtime = os.path.getmtime(note_path)
+                    note_files.append((mtime, note_path))
+            
+            if note_files:
+                note_files.sort(reverse=True)
+                latest_note_path = note_files[0][1]
+                
+                print(f"File: {latest_note_path}\n")
+                
+                with open(latest_note_path, "r", encoding="utf-8") as f:
+                    transcript_data = json.load(f)
+                
+                # Print the JSON
+                print(json.dumps(transcript_data, indent=2, ensure_ascii=False))
+            else:
+                print("ERROR: No note.json found in advisors directory")
+        else:
+            print("ERROR: No timestamp folders found in advisors directory")
+    else:
+        print(f"ERROR: Advisors directory not found at {advisors_dir}")
+
+except Exception as e:
+    print(f"ERROR: Could not print final transcript data: {e}")
+    import traceback
+    traceback.print_exc()
+
+print("\n" + "="*100 + "\n")
 
 

@@ -1,0 +1,115 @@
+Name: Jordan A Broomfield
+V-Number: V00679148
+Advisor: Wang
+
+Transcripts / Semesters:
+Freshman 1: Fall 2022 : Advanced Placement
+  - ENGL 110 Composition I
+      grade: TR, credits: 3.000, notes: ENGL 110 Composition I TR 3.000
+
+Freshman 2: Term : Fall 2022
+  - CSCI 101 Intro the Cmptr Sci Profession
+      grade: A, credits: 2.000, notes: CSCI 101 Intro the Cmptr Sci Profession A 2.000
+  - CSCI 150 Programming I
+      grade: A, credits: 3.000, notes: CSCI 150 Programming I A 3.000
+  - CSCI 151 Programming I Lab
+      grade: A, credits: 1.000, notes: CSCI 151 Programming I Lab A 1.000
+  - ENGL 202 Intro African American Lit
+      grade: A, credits: 3.000, notes: ENGL 202 Intro African American Lit A 3.000
+  - FRST 101 Freshman Studies (HONORS)
+      grade: S, credits: 0.000, notes: FRST 101 Freshman Studies (HONORS) S 0.000
+  - MATH 260 Calculus I
+      grade: W, credits: 4.000, notes: MATH 260 Calculus I W 4.000
+  - SOCI 101 Introduction To Sociology
+      grade: B, credits: 3.000, notes: SOCI 101 Introduction To Sociology B 3.000
+
+Sophomore 1: Term : Spring 2023
+  - CSCI 250 Programming II
+      grade: A, credits: 3.000, notes: CSCI 250 Programming II A 3.000
+  - CSCI 251 Programming II Lab
+      grade: A, credits: 1.000, notes: CSCI 251 Programming II Lab A 1.000
+  - ENGL 111 Composition II
+      grade: A, credits: 3.000, notes: ENGL 111 Composition II A 3.000
+  - HIST 114 World History to 1500
+      grade: B, credits: 3.000, notes: HIST 114 World History to 1500 B 3.000
+  - HPER 170 Health And Wellness
+      grade: B, credits: 2.000, notes: HPER 170 Health And Wellness B 2.000
+  - MATH 260 Calculus I
+      grade: C, credits: 4.000, notes: MATH 260 Calculus I C 4.000
+  - PHED 120 Foundations Of Physical Ed
+      grade: C, credits: 2.000, notes: PHED 120 Foundations Of Physical Ed C 2.000
+
+Sophomore 2: Term : Fall 2023
+  - CSCI 287 Data Structures
+      grade: A, credits: 3.000, notes: CSCI 287 Data Structures A 3.000
+  - CSCI 303 Computer Org & Architecture
+      grade: A, credits: 3.000, notes: CSCI 303 Computer Org & Architecture A 3.000
+  - CSCI 398 Internship Computer Science II
+      grade: A, credits: 3.000, notes: CSCI 398 Internship Computer Science II A 3.000
+  - CSCI 495 TOPS in CS:Android APP Develop
+      grade: B, credits: 3.000, notes: CSCI 495 TOPS in CS:Android APP Develop B 3.000
+  - MATH 261 Calculus II
+      grade: B, credits: 4.000, notes: MATH 261 Calculus II B 4.000
+
+Junior 1: Term : Spring 2024
+  - CSCI 296 Web Programming
+      grade: A, credits: 3.000, notes: CSCI 296 Web Programming A 3.000
+  - CSCI 356 Database Systems
+      grade: B, credits: 3.000, notes: CSCI 356 Database Systems B 3.000
+  - CSCI 358 Introd Information Assurance
+      grade: B, credits: 3.000, notes: CSCI 358 Introd Information Assurance B 3.000
+  - ENGL 342 Technical Communication
+      grade: A, credits: 3.000, notes: ENGL 342 Technical Communication A 3.000
+  - SPAN 110 Elementary Spanish I
+      grade: A, credits: 3.000, notes: SPAN 110 Elementary Spanish I A 3.000
+
+Junior 2: Term : Fall 2024
+  - CSCI 445 Computer Communication Network
+      grade: A, credits: 3.000, notes: CSCI 445 Computer Communication Network A 3.000
+  - CSCI 489 Operating Systems
+      grade: B, credits: 3.000, notes: CSCI 489 Operating Systems B 3.000
+  - PHIL 275 Ethics
+      grade: A, credits: 3.000, notes: PHIL 275 Ethics A 3.000
+  - PHYS 105 Introduction to Physics I
+      grade: B, credits: 1.000, notes: PHYS 105 Introduction to Physics I B 1.000
+  - PHYS 105 Introduction to Physics I
+      grade: A, credits: 3.000, notes: PHYS 105 Introduction to Physics I A 3.000
+  - STAT 340 Probability Stat Cmptr Scienti
+      grade: A, credits: 3.000, notes: STAT 340 Probability Stat Cmptr Scienti A 3.000
+
+Senior 1: Term : Spring 2025
+  - CSCI 400 Computer Science Seminar
+      grade: A, credits: 2.000, notes: CSCI 400 Computer Science Seminar A 2.000
+  - CSCI 485 Programming Languages
+      grade: A, credits: 3.000, notes: CSCI 485 Programming Languages A 3.000
+  - MATH 280 Discrete Math Computer Science
+      grade: B, credits: 3.000, notes: MATH 280 Discrete Math Computer Science B 3.000
+  - MATH 325 Linear Algebra
+      grade: A, credits: 3.000, notes: MATH 325 Linear Algebra A 3.000
+  - PHYS 106 Introduction to Physics II
+      grade: A, credits: 3.000, notes: PHYS 106 Introduction to Physics II A 3.000
+  - PHYS 106 Introduction to Physics II
+      grade: B, credits: 1.000, notes: PHYS 106 Introduction to Physics II B 1.000
+
+Senior 2: Term : Fall 2025
+  - CSCI 281 Discrete Structures
+      grade: A, credits: 3.000, notes: CSCI 281 Discrete Structures A 3.000
+  - CSCI 471 Parallel & Distributed Program
+      grade: B, credits: 3.000, notes: CSCI 471 Parallel & Distributed Program B 3.000
+  - CSCI 487 Software Design And Developmen
+      grade: C, credits: 3.000, notes: CSCI 487 Software Design And Developmen C 3.000
+  - CSCI 493 Senior Project I
+      grade: B, credits: 3.000, notes: CSCI 493 Senior Project I B 3.000
+  - CSCI 495 Top in CS: Intro to Data Scien
+      grade: A, credits: 3.000, notes: CSCI 495 Top in CS: Intro to Data Scien A 3.000
+
+Year5 1: Term : Spring 2026
+  - CSCI 392 U Algorithms & Adv Data Structur
+      grade: inprog, credits: 3.000, notes: CSCI 392 U Algorithms & Adv Data Structur inprog 3.000
+  - CSCI 494 U Senior Project II
+      grade: inprog, credits: 3.000, notes: CSCI 494 U Senior Project II inprog 3.000
+  - CSCI 495 U Tp in CS: Linux
+      grade: inprog, credits: 3.000, notes: CSCI 495 U Tp in CS: Linux inprog 3.000
+  - HIST 115 U World History Since 1500
+      grade: inprog, credits: 3.000, notes: HIST 115 U World History Since 1500 inprog 3.000
+

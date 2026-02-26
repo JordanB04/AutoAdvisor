@@ -1,169 +1,150 @@
 # fastapi-service/main.py
 # Two-Step API Flow: AutoAdvisor pauses for PIN, then continues
 
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel, EmailStr
-from typing import Optional, Dict, Any
-import uuid
 import logging
+import subprocess
+import json
+import os
+import sys
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
 from datetime import datetime
 
-app = FastAPI(title="Auto Advisor API - Two-Step Flow")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Auto Advisor API - Two-Step Flow")
 
 # In-memory session storage (use Redis in production)
 active_sessions = {}
 
-
-# ============================================================
-# MODELS
-# ============================================================
-
-class InitialRequest(BaseModel):
-    """Step 1: Initial request to fetch transcript"""
+class FetchTranscriptRequest(BaseModel):
     username: str
     password: str
-
+    config_path: Optional[str] = "./config.xlsx"
+    advisor: Optional[str] = ""
 
 class PinRequest(BaseModel):
-    """Step 2: User provides PIN"""
     session_id: str
     pin: str
 
-
-class SessionResponse(BaseModel):
-    """Response when AutoAdvisor needs PIN"""
-    session_id: str
-    status: str
-    message: str
-    awaiting_pin: bool
-
-
 class TranscriptResponse(BaseModel):
-    """Final response with transcript data"""
     success: bool
     session_id: str
-    transcript_data: Dict[str, Any]
+    transcript_data: Optional[Dict[str, Any]] = None
     message: str
 
+@app.get("/")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "online", "version": "2.4.4-Student"}
 
-# ============================================================
-# STEP 1: INITIAL REQUEST - USER REQUESTS TRANSCRIPT
-# ============================================================
-
-@app.post("/api/fetch-transcript", response_model=SessionResponse)
-def fetch_transcript(request: InitialRequest):
+@app.post("/api/fetch-transcript")
+def fetch_transcript(request: FetchTranscriptRequest):
     """
-    Step 1: User requests transcript analysis
+    Step 1: User submits credentials to request transcript
+    Returns a session_id to use for PIN submission
+    """
+    logger.info(f"Transcript request for user: {request.username}")
     
-    Flow:
-    1. User sends username/password
-    2. API validates credentials
-    3. API creates AutoAdvisor instance
-    4. AutoAdvisor starts processing
-    5. AutoAdvisor needs PIN (2FA)
-    6. API pauses and returns session_id
-    7. User must call /api/submit-pin with session_id
-    
-    Request:
-    {
-        "username": "jdoe@vsu.edu",
-        "password": "SecurePass123"
-    }
-    
-    Response:
-    {
-        "session_id": "abc123-def456",
+    # Create session
+    session_id = f"session_{datetime.now().timestamp()}"
+    active_sessions[session_id] = {
         "status": "awaiting_pin",
-        "message": "PIN required for 2FA",
-        "awaiting_pin": true
+        "username": request.username,
+        "password": request.password,
+        "config_path": request.config_path or "./config.xlsx",
+        "advisor": request.advisor or "",
+        "created_at": datetime.now().isoformat()
     }
+    
+    logger.info(f"Session created: {session_id}")
+    
+    return {
+        "success": True,
+        "session_id": session_id,
+        "message": "Session created. Submit PIN to continue."
+    }
+
+def run_autoadvisor(username: str, password: str, config_path: str, advisor: str) -> Optional[Dict[str, Any]]:
     """
-    logger.info(f"Fetch transcript request from: {request.username}")
-    
+    Call project.py as subprocess to fetch and parse transcript
+    Returns the parsed note.json data
+    """
     try:
-        # Generate unique session ID
-        session_id = str(uuid.uuid4())
+        # Build command to run project.py
+        project_py_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "autoadvisor-dev", "project.py"))
         
-        # Validate credentials (simplified)
-        if not request.username or len(request.password) < 8:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+        cmd = [
+            sys.executable,
+            project_py_path,
+            "--config", config_path,
+            "--user", username,
+            "--pass", password
+        ]
         
-        # Create session state
-        session_state = {
-            "session_id": session_id,
-            "username": request.username,
-            "password": request.password,
-            "status": "awaiting_pin",
-            "created_at": datetime.now().isoformat(),
-            "autoadvisor_state": "initialized",
-            "transcript_data": None
-        }
+        if advisor:
+            cmd += ["--advisor", advisor]
         
-        # Store session (in production, use Redis with expiration)
-        active_sessions[session_id] = session_state
+        logger.info(f"Running: {' '.join(cmd)}")
         
-        logger.info(f"Session created: {session_id}, awaiting PIN")
+        # Run project.py and capture output
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
-        # Return session ID and request PIN
-        return SessionResponse(
-            session_id=session_id,
-            status="awaiting_pin",
-            message="Please provide your 4-digit PIN to continue",
-            awaiting_pin=True
-        )
+        # Print all output to terminal
+        print("\n" + "="*100)
+        print("AUTOADVISOR SUBPROCESS OUTPUT:")
+        print("="*100)
+        print(result.stdout)
+        if result.stderr:
+            print("STDERR:", result.stderr)
+        print("="*100 + "\n")
+        
+        # Try to extract JSON from stdout (it prints at the end between === markers)
+        output = result.stdout
+        if "FINAL STUDENT TRANSCRIPT DATA - note.json" in output:
+            # Extract JSON between the === markers
+            start_marker = "FINAL STUDENT TRANSCRIPT DATA - note.json"
+            start_idx = output.find(start_marker)
+            if start_idx != -1:
+                # Find the first { after the marker
+                json_start = output.find("{", start_idx)
+                if json_start != -1:
+                    # Find the last } in the output
+                    json_end = output.rfind("}")
+                    if json_end != -1 and json_end > json_start:
+                        json_str = output[json_start:json_end+1]
+                        try:
+                            transcript_data = json.loads(json_str)
+                            logger.info("Successfully extracted transcript JSON from output")
+                            return transcript_data
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse JSON: {e}")
+        
+        logger.warning("Could not extract transcript data from subprocess output")
+        return None
     
-    except HTTPException:
-        raise
+    except subprocess.TimeoutExpired:
+        logger.error("AutoAdvisor process timed out after 10 minutes")
+        raise HTTPException(status_code=504, detail="AutoAdvisor processing timed out")
     except Exception as e:
-        logger.error(f"Error creating session: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============================================================
-# STEP 2: PIN SUBMISSION - USER PROVIDES PIN
-# ============================================================
+        logger.error(f"Error running AutoAdvisor: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AutoAdvisor error: {str(e)}")
 
 @app.post("/api/submit-pin", response_model=TranscriptResponse)
 def submit_pin(request: PinRequest):
     """
     Step 2: User submits PIN to continue processing
-    
-    Flow:
-    1. User sends session_id + PIN
-    2. API retrieves session state
-    3. API resumes AutoAdvisor with PIN
-    4. AutoAdvisor completes transcript fetch
-    5. AutoAdvisor returns JSON transcript
-    6. API sends transcript to user
-    
-    Request:
-    {
-        "session_id": "abc123-def456",
-        "pin": "1234"
-    }
-    
-    Response:
-    {
-        "success": true,
-        "session_id": "abc123-def456",
-        "transcript_data": {
-            "student_id": "V123456789",
-            "name": "John Doe",
-            "transcript": {...}
-        },
-        "message": "Transcript fetched successfully"
-    }
+    Calls project.py to fetch and parse transcript
     """
     logger.info(f"PIN submission for session: {request.session_id}")
     
     try:
         # Retrieve session
         if request.session_id not in active_sessions:
-            raise HTTPException(
-                status_code=404, 
-                detail="Session not found or expired"
-            )
+            raise HTTPException(status_code=404, detail="Session not found or expired")
         
         session = active_sessions[request.session_id]
         
@@ -178,14 +159,19 @@ def submit_pin(request: PinRequest):
         if not request.pin.isdigit() or len(request.pin) != 4:
             raise HTTPException(status_code=400, detail="Invalid PIN format")
         
-        logger.info("PIN validated, resuming AutoAdvisor processing")
+        logger.info("PIN validated, running AutoAdvisor processing")
         
         # Update session status
         session["status"] = "processing"
         session["pin"] = request.pin
         
-        # Resume AutoAdvisor processing with PIN
-        transcript_data = resume_autoadvisor(session)
+        # Call project.py to fetch transcript
+        transcript_data = run_autoadvisor(
+            session["username"],
+            session["password"],
+            session["config_path"],
+            session["advisor"]
+        )
         
         # Update session with results
         session["status"] = "completed"
@@ -193,7 +179,6 @@ def submit_pin(request: PinRequest):
         
         logger.info("Transcript fetched successfully")
         
-        # Return transcript data
         return TranscriptResponse(
             success=True,
             session_id=request.session_id,
@@ -207,255 +192,63 @@ def submit_pin(request: PinRequest):
         logger.error(f"Error processing PIN: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ============================================================
-# AUTOADVISOR INTEGRATION
-# ============================================================
-
-def resume_autoadvisor(session: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Resume AutoAdvisor processing with PIN
-    
-    This function:
-    1. Takes session state (username, password, PIN)
-    2. Calls AutoAdvisor to fetch transcript
-    3. Returns transcript JSON
-    """
-    logger.info("Calling AutoAdvisor with credentials and PIN")
-    
-    # Import AutoAdvisor (your actual implementation)
-    # from auto_advisor import AutoAdvisor
-    
-    try:
-        # Simulated AutoAdvisor call
-        # In your actual code, this would:
-        # 1. Use Selenium to log into portal with username/password
-        # 2. Enter PIN when prompted (2FA)
-        # 3. Download transcript
-        # 4. Parse transcript into JSON
-        # 5. Return structured data
-        
-        # advisor = AutoAdvisor()
-        # transcript = advisor.fetch_transcript(
-        #     username=session['username'],
-        #     password=session['password'],
-        #     pin=session['pin']
-        # )
-        
-        # For now, return mock data
-        transcript_data = {
-            "student_id": "V123456789",
-            "name": "John Doe",
-            "advisor": "Dr. Smith",
-            "gpa": 3.75,
-            "total_credits": 115,
-            "transcript": {
-                "freshman_1": [
-                    {
-                        "name": "Intro to CS Profession",
-                        "grade": "A",
-                        "credits": 2.0,
-                        "semester": "FA22"
-                    }
-                ],
-                "freshman_2": [],
-                "sophomore_1": [],
-                "sophomore_2": [],
-                "junior_1": [],
-                "junior_2": [],
-                "senior_1": [],
-                "senior_2": []
-            }
-        }
-        
-        return transcript_data
-    
-    except Exception as e:
-        logger.error(f"AutoAdvisor error: {str(e)}")
-        raise
-
-
-# ============================================================
-# SESSION MANAGEMENT
-# ============================================================
-
 @app.get("/api/session/{session_id}")
-def get_session_status(session_id: str):
-    """
-    Check the status of a session
-    
-    Useful for:
-    - Checking if session is still valid
-    - Seeing what state AutoAdvisor is in
-    - Debugging
-    """
+def get_session(session_id: str):
+    """Check session status"""
     if session_id not in active_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = active_sessions[session_id]
-    
     return {
         "session_id": session_id,
         "status": session["status"],
-        "created_at": session["created_at"],
-        "awaiting_pin": session["status"] == "awaiting_pin"
+        "created_at": session.get("created_at"),
+        "transcript_data": session.get("transcript_data")
     }
-
 
 @app.delete("/api/session/{session_id}")
-def cancel_session(session_id: str):
-    """
-    Cancel/delete a session
+def delete_session(session_id: str):
+    """Cancel/delete a session"""
+    if session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
     
-    Use this if user wants to start over or abandon the process
-    """
-    if session_id in active_sessions:
-        del active_sessions[session_id]
-        return {"message": "Session cancelled", "session_id": session_id}
-    
-    raise HTTPException(status_code=404, detail="Session not found")
-
-
-# ============================================================
-# UTILITY ENDPOINTS
-# ============================================================
-
-@app.get("/")
-def root():
-    """Health check"""
-    return {
-        "status": "healthy",
-        "service": "Auto Advisor API - Two-Step Flow",
-        "active_sessions": len(active_sessions),
-        "endpoints": {
-            "step1": "POST /api/fetch-transcript",
-            "step2": "POST /api/submit-pin",
-            "status": "GET /api/session/{session_id}"
-        }
-    }
-
+    del active_sessions[session_id]
+    return {"message": "Session deleted"}
 
 @app.get("/api/active-sessions")
-def get_active_sessions():
-    """
-    Development endpoint: see all active sessions
-    Remove this in production!
-    """
+def list_active_sessions():
+    """List all active sessions (dev only)"""
     return {
         "count": len(active_sessions),
-        "sessions": [
-            {
-                "session_id": sid,
-                "status": session["status"],
-                "username": session["username"]
-            }
-            for sid, session in active_sessions.items()
-        ]
+        "sessions": list(active_sessions.keys())
     }
 
-
-# ============================================================
-# COMPLETE FLOW EXAMPLE
-# ============================================================
-
-"""
-COMPLETE API FLOW EXAMPLE:
-
-Step 1: User requests transcript
-──────────────────────────────────
-POST /api/fetch-transcript
-{
-    "username": "jdoe@vsu.edu",
-    "password": "SecurePass123"
-}
-
-Response:
-{
-    "session_id": "abc123-def456-789",
-    "status": "awaiting_pin",
-    "message": "Please provide your 4-digit PIN to continue",
-    "awaiting_pin": true
-}
-
-
-Step 2: User provides PIN
-──────────────────────────
-POST /api/submit-pin
-{
-    "session_id": "abc123-def456-789",
-    "pin": "1234"
-}
-
-Response:
-{
-    "success": true,
-    "session_id": "abc123-def456-789",
-    "transcript_data": {
-        "student_id": "V123456789",
-        "name": "John Doe",
-        "gpa": 3.75,
-        "total_credits": 115,
-        "transcript": {
-            "freshman_1": [...],
-            "freshman_2": [...],
-            ...
-        }
-    },
-    "message": "Transcript fetched successfully"
-}
-
-
-TESTING WITH CURL:
-──────────────────
-
-# Step 1
-curl -X POST http://localhost:8001/api/fetch-transcript \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "jdoe@vsu.edu",
-    "password": "SecurePass123"
-  }'
-
-# Save the session_id from response
-
-# Step 2
-curl -X POST http://localhost:8001/api/submit-pin \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "YOUR_SESSION_ID_HERE",
-    "pin": "1234"
-  }'
-
-
-TESTING IN PYTHON:
-──────────────────
-
-import requests
-
-# Step 1: Request transcript
-response1 = requests.post(
-    "http://localhost:8001/api/fetch-transcript",
-    json={
-        "username": "jdoe@vsu.edu",
-        "password": "SecurePass123"
-    }
-)
-
-result1 = response1.json()
-session_id = result1["session_id"]
-print(f"Session ID: {session_id}")
-print(f"Status: {result1['status']}")
-
-# Step 2: Submit PIN
-response2 = requests.post(
-    "http://localhost:8001/api/submit-pin",
-    json={
-        "session_id": session_id,
-        "pin": "1234"
-    }
-)
-
-result2 = response2.json()
-print(f"Success: {result2['success']}")
-print(f"Transcript: {result2['transcript_data']}")
-"""
+if __name__ == "__main__":
+    import uvicorn
+    
+    print("\n" + "="*100)
+    print("AUTO ADVISOR API - TWO-STEP FLOW")
+    print("="*100)
+    print("\nAPI running on: http://localhost:8001")
+    print("\nQUICK START:")
+    print("-" * 100)
+    print("\n1. Request transcript:")
+    print("   POST /api/fetch-transcript")
+    print("   Body: {\"username\": \"jdoe@vsu.edu\", \"password\": \"YourPass\"}")
+    print("\n2. Submit PIN:")
+    print("   POST /api/submit-pin")
+    print("   Body: {\"session_id\": \"<from step 1>\", \"pin\": \"1234\"}")
+    print("\n3. Check status:")
+    print("   GET /api/session/{session_id}")
+    print("\n" + "="*100)
+    print("ENDPOINTS:")
+    print("-" * 100)
+    print("  POST   /api/fetch-transcript        - Step 1: Request transcript")
+    print("  POST   /api/submit-pin              - Step 2: Submit PIN")
+    print("  GET    /api/session/{session_id}    - Check session status")
+    print("  DELETE /api/session/{session_id}    - Cancel session")
+    print("  GET    /api/active-sessions         - View all active sessions (dev)")
+    print("  GET    /                            - Health check")
+    print("="*100 + "\n")
+    
+    uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -3,11 +3,9 @@ V-Number: V00679148
 Advisor: Wang
 
 Transcripts / Semesters:
-Freshman 1: Fall 2022 : Advanced Placement
+Freshman 1: FALL 2022
   - ENGL 110 Composition I
       grade: TR, credits: 3.000, notes: ENGL 110 Composition I TR 3.000
-
-Freshman 2: Term : Fall 2022
   - CSCI 101 Intro the Cmptr Sci Profession
       grade: A, credits: 2.000, notes: CSCI 101 Intro the Cmptr Sci Profession A 2.000
   - CSCI 150 Programming I
@@ -23,7 +21,7 @@ Freshman 2: Term : Fall 2022
   - SOCI 101 Introduction To Sociology
       grade: B, credits: 3.000, notes: SOCI 101 Introduction To Sociology B 3.000
 
-Sophomore 1: Term : Spring 2023
+Freshman 2: SPRING 2023
   - CSCI 250 Programming II
       grade: A, credits: 3.000, notes: CSCI 250 Programming II A 3.000
   - CSCI 251 Programming II Lab
@@ -39,7 +37,7 @@ Sophomore 1: Term : Spring 2023
   - PHED 120 Foundations Of Physical Ed
       grade: C, credits: 2.000, notes: PHED 120 Foundations Of Physical Ed C 2.000
 
-Sophomore 2: Term : Fall 2023
+Sophomore 1: FALL 2023
   - CSCI 287 Data Structures
       grade: A, credits: 3.000, notes: CSCI 287 Data Structures A 3.000
   - CSCI 303 Computer Org & Architecture
@@ -51,7 +49,7 @@ Sophomore 2: Term : Fall 2023
   - MATH 261 Calculus II
       grade: B, credits: 4.000, notes: MATH 261 Calculus II B 4.000
 
-Junior 1: Term : Spring 2024
+Sophomore 2: SPRING 2024
   - CSCI 296 Web Programming
       grade: A, credits: 3.000, notes: CSCI 296 Web Programming A 3.000
   - CSCI 356 Database Systems
@@ -63,7 +61,7 @@ Junior 1: Term : Spring 2024
   - SPAN 110 Elementary Spanish I
       grade: A, credits: 3.000, notes: SPAN 110 Elementary Spanish I A 3.000
 
-Junior 2: Term : Fall 2024
+Junior 1: FALL 2024
   - CSCI 445 Computer Communication Network
       grade: A, credits: 3.000, notes: CSCI 445 Computer Communication Network A 3.000
   - CSCI 489 Operating Systems
@@ -77,7 +75,7 @@ Junior 2: Term : Fall 2024
   - STAT 340 Probability Stat Cmptr Scienti
       grade: A, credits: 3.000, notes: STAT 340 Probability Stat Cmptr Scienti A 3.000
 
-Senior 1: Term : Spring 2025
+Junior 2: SPRING 2025
   - CSCI 400 Computer Science Seminar
       grade: A, credits: 2.000, notes: CSCI 400 Computer Science Seminar A 2.000
   - CSCI 485 Programming Languages
@@ -91,7 +89,7 @@ Senior 1: Term : Spring 2025
   - PHYS 106 Introduction to Physics II
       grade: B, credits: 1.000, notes: PHYS 106 Introduction to Physics II B 1.000
 
-Senior 2: Term : Fall 2025
+Senior 1: FALL 2025
   - CSCI 281 Discrete Structures
       grade: A, credits: 3.000, notes: CSCI 281 Discrete Structures A 3.000
   - CSCI 471 Parallel & Distributed Program
@@ -103,7 +101,7 @@ Senior 2: Term : Fall 2025
   - CSCI 495 Top in CS: Intro to Data Scien
       grade: A, credits: 3.000, notes: CSCI 495 Top in CS: Intro to Data Scien A 3.000
 
-Year5 1: Term : Spring 2026
+Senior 2: SPRING 2026
   - CSCI 392 U Algorithms & Adv Data Structur
       grade: inprog, credits: 3.000, notes: CSCI 392 U Algorithms & Adv Data Structur inprog 3.000
   - CSCI 494 U Senior Project II

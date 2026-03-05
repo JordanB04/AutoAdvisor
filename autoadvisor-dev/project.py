@@ -402,9 +402,38 @@ def create_note_files(path, name, vnumber, advisor):
 
         return parsed
 
-    # build labels (Freshman 1, etc.)
+    # Group blocks by semester - DEBUG VERSION
+    # Extract actual semester names (e.g., "Fall 2022") using regex
+    def extract_semester(text):
+        """Extract semester like 'Fall 2022' from text"""
+        m = re.search(r'(Fall|Spring|Summer|Winter)\s+\d{4}', text, re.IGNORECASE)
+        if m:
+            return m.group(0).upper()
+        return None
+
+    # Remove duplicates from semesters list first
+    semesters = list(dict.fromkeys(semesters))  # deduplicate semesters
+    print(f"DEBUG: After dedup, len(semesters) = {len(semesters)}")
+
+    # Build unique semesters list by extracting from the deduplicated semesters.txt
+    unique_semesters = []
+    seen = set()
+    for sem in semesters:
+        sem_extracted = extract_semester(sem)
+        if sem_extracted and sem_extracted not in seen:
+            unique_semesters.append(sem_extracted)
+            seen.add(sem_extracted)
+    
+    print(f"DEBUG: unique_semesters = {unique_semesters}")
+    print(f"DEBUG: len(unique_semesters) = {len(unique_semesters)}")
+    print(f"DEBUG: len(sem_courses) = {len(sem_courses)}")
+
+    # Set bucket count to the number of unique semesters ONLY
+    bucket_count = 8
+    print(f"DEBUG: bucket_count = {bucket_count}")
+    
+    # Build semester labels (two per academic year)
     label_names = ["Freshman", "Sophomore", "Junior", "Senior"]
-    bucket_count = max(len(sem_courses), len(semesters), 1)
     labels = []
     for i in range(bucket_count):
         year = i // 2
@@ -412,11 +441,14 @@ def create_note_files(path, name, vnumber, advisor):
         base = label_names[year] if year < len(label_names) else f"Year{year+1}"
         labels.append(f"{base} {part}")
 
+    print(f"DEBUG: labels = {labels}")
+
+    # Rebuild sem_buckets with the extracted semesters
     sem_buckets = []
-    for i in range(len(labels)):
+    for i in range(bucket_count):
         sem_buckets.append({
             "label": labels[i],
-            "description": semesters[i] if i < len(semesters) else "",
+            "description": unique_semesters[i] if i < len(unique_semesters) else "",
             "courses": []
         })
 
@@ -443,39 +475,43 @@ def create_note_files(path, name, vnumber, advisor):
                     return idx
         return None
 
-    block_count = len(sem_courses)
-    next_seq_bucket = 0
-    block_to_bucket = {}
+    # Associate each block with its corresponding semester from the deduplicated semesters.txt
+    block_to_sem_key = {}
     for b_idx, block in enumerate(sem_courses):
-        mapped = None
-        for raw in block:
-            m = semcode_re.search(raw)
-            if m:
-                idx = sem_code_to_index(m.group(0).upper().replace(" ", ""))
-                if idx is not None:
-                    mapped = idx
-                    break
-        if mapped is None:
-            block_text = " ".join(block).upper()
-            for idx, sem in enumerate(sem_buckets):
-                desc = (sem.get("description") or "").upper()
-                if desc and desc in block_text:
-                    mapped = idx
-                    break
-            if mapped is None and block_count == len(sem_buckets):
-                mapped = b_idx
-        if mapped is None:
-            for idx in range(len(sem_buckets)):
-                if len(sem_buckets[idx]["courses"]) == 0:
-                    mapped = idx
-                    break
-            if mapped is None:
-                mapped = min(next_seq_bucket, len(sem_buckets) - 1)
-        block_to_bucket[b_idx] = mapped
-        next_seq_bucket = min(mapped + 1, len(sem_buckets) - 1)
+        sem_key = None
+        if b_idx < len(semesters):
+            sem_text = semesters[b_idx]
+            sem_key = extract_semester(sem_text)
+        block_to_sem_key[b_idx] = sem_key
 
+    print(f"DEBUG: block_to_sem_key = {block_to_sem_key}")
+
+    # Map blocks to buckets based on their semester key
+    block_to_bucket = {}
+    for b_idx in range(len(sem_courses)):
+        sem_key = block_to_sem_key.get(b_idx)
+        mapped = None
+        
+        if sem_key:
+            # Find the bucket that matches this semester
+            for idx, sem in enumerate(sem_buckets):
+                desc_upper = (sem.get("description") or "").upper()
+                if sem_key == desc_upper:
+                    mapped = idx
+                    break
+        
+        # Fallback: sequential mapping if no sem_key found
+        if mapped is None:
+            mapped = min(b_idx, len(sem_buckets) - 1)
+        
+        block_to_bucket[b_idx] = mapped
+
+    print(f"DEBUG: block_to_bucket = {block_to_bucket}")
+
+    # Assign courses into buckets
     for b_idx, block in enumerate(sem_courses):
         target_idx = block_to_bucket.get(b_idx, 0)
+        print(f"DEBUG: Assigning block {b_idx} to bucket {target_idx}")
         for raw in block:
             p = parse_course_line(raw)
             if p.get("_sem_code"):
@@ -489,6 +525,7 @@ def create_note_files(path, name, vnumber, advisor):
             p.pop("_sem_code", None)
             sem_buckets[target_idx]["courses"].append(p)
 
+    # Final cleanup
     for sem in sem_buckets:
         for c in sem["courses"]:
             if "notes" not in c:

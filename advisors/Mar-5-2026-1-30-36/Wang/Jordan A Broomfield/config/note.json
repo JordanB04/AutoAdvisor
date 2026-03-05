@@ -5,7 +5,7 @@
   "semesters": [
     {
       "label": "Freshman 1",
-      "description": "Fall 2022 : Advanced Placement",
+      "description": "FALL 2022",
       "courses": [
         {
           "course_code": "ENGL 110",
@@ -14,19 +14,13 @@
           "credits": "3.000",
           "semester": "Freshman 1",
           "notes": "ENGL 110 Composition I TR 3.000"
-        }
-      ]
-    },
-    {
-      "label": "Freshman 2",
-      "description": "Term : Fall 2022",
-      "courses": [
+        },
         {
           "course_code": "CSCI 101",
           "name": "Intro the Cmptr Sci Profession",
           "grade": "A",
           "credits": "2.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "CSCI 101 Intro the Cmptr Sci Profession A 2.000"
         },
         {
@@ -34,7 +28,7 @@
           "name": "Programming I",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "CSCI 150 Programming I A 3.000"
         },
         {
@@ -42,7 +36,7 @@
           "name": "Programming I Lab",
           "grade": "A",
           "credits": "1.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "CSCI 151 Programming I Lab A 1.000"
         },
         {
@@ -50,7 +44,7 @@
           "name": "Intro African American Lit",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "ENGL 202 Intro African American Lit A 3.000"
         },
         {
@@ -58,7 +52,7 @@
           "name": "Freshman Studies (HONORS)",
           "grade": "S",
           "credits": "0.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "FRST 101 Freshman Studies (HONORS) S 0.000"
         },
         {
@@ -66,7 +60,7 @@
           "name": "Calculus I",
           "grade": "W",
           "credits": "4.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "MATH 260 Calculus I W 4.000"
         },
         {
@@ -74,21 +68,21 @@
           "name": "Introduction To Sociology",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Freshman 2",
+          "semester": "Freshman 1",
           "notes": "SOCI 101 Introduction To Sociology B 3.000"
         }
       ]
     },
     {
-      "label": "Sophomore 1",
-      "description": "Term : Spring 2023",
+      "label": "Freshman 2",
+      "description": "SPRING 2023",
       "courses": [
         {
           "course_code": "CSCI 250",
           "name": "Programming II",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "CSCI 250 Programming II A 3.000"
         },
         {
@@ -96,7 +90,7 @@
           "name": "Programming II Lab",
           "grade": "A",
           "credits": "1.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "CSCI 251 Programming II Lab A 1.000"
         },
         {
@@ -104,7 +98,7 @@
           "name": "Composition II",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "ENGL 111 Composition II A 3.000"
         },
         {
@@ -112,7 +106,7 @@
           "name": "World History to 1500",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "HIST 114 World History to 1500 B 3.000"
         },
         {
@@ -120,7 +114,7 @@
           "name": "Health And Wellness",
           "grade": "B",
           "credits": "2.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "HPER 170 Health And Wellness B 2.000"
         },
         {
@@ -128,7 +122,7 @@
           "name": "Calculus I",
           "grade": "C",
           "credits": "4.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "MATH 260 Calculus I C 4.000"
         },
         {
@@ -136,21 +130,21 @@
           "name": "Foundations Of Physical Ed",
           "grade": "C",
           "credits": "2.000",
-          "semester": "Sophomore 1",
+          "semester": "Freshman 2",
           "notes": "PHED 120 Foundations Of Physical Ed C 2.000"
         }
       ]
     },
     {
-      "label": "Sophomore 2",
-      "description": "Term : Fall 2023",
+      "label": "Sophomore 1",
+      "description": "FALL 2023",
       "courses": [
         {
           "course_code": "CSCI 287",
           "name": "Data Structures",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Sophomore 2",
+          "semester": "Sophomore 1",
           "notes": "CSCI 287 Data Structures A 3.000"
         },
         {
@@ -158,7 +152,7 @@
           "name": "Computer Org & Architecture",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Sophomore 2",
+          "semester": "Sophomore 1",
           "notes": "CSCI 303 Computer Org & Architecture A 3.000"
         },
         {
@@ -166,7 +160,7 @@
           "name": "Internship Computer Science II",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Sophomore 2",
+          "semester": "Sophomore 1",
           "notes": "CSCI 398 Internship Computer Science II A 3.000"
         },
         {
@@ -174,7 +168,7 @@
           "name": "TOPS in CS:Android APP Develop",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Sophomore 2",
+          "semester": "Sophomore 1",
           "notes": "CSCI 495 TOPS in CS:Android APP Develop B 3.000"
         },
         {
@@ -182,21 +176,21 @@
           "name": "Calculus II",
           "grade": "B",
           "credits": "4.000",
-          "semester": "Sophomore 2",
+          "semester": "Sophomore 1",
           "notes": "MATH 261 Calculus II B 4.000"
         }
       ]
     },
     {
-      "label": "Junior 1",
-      "description": "Term : Spring 2024",
+      "label": "Sophomore 2",
+      "description": "SPRING 2024",
       "courses": [
         {
           "course_code": "CSCI 296",
           "name": "Web Programming",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 1",
+          "semester": "Sophomore 2",
           "notes": "CSCI 296 Web Programming A 3.000"
         },
         {
@@ -204,7 +198,7 @@
           "name": "Database Systems",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Junior 1",
+          "semester": "Sophomore 2",
           "notes": "CSCI 356 Database Systems B 3.000"
         },
         {
@@ -212,7 +206,7 @@
           "name": "Introd Information Assurance",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Junior 1",
+          "semester": "Sophomore 2",
           "notes": "CSCI 358 Introd Information Assurance B 3.000"
         },
         {
@@ -220,7 +214,7 @@
           "name": "Technical Communication",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 1",
+          "semester": "Sophomore 2",
           "notes": "ENGL 342 Technical Communication A 3.000"
         },
         {
@@ -228,21 +222,21 @@
           "name": "Elementary Spanish I",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 1",
+          "semester": "Sophomore 2",
           "notes": "SPAN 110 Elementary Spanish I A 3.000"
         }
       ]
     },
     {
-      "label": "Junior 2",
-      "description": "Term : Fall 2024",
+      "label": "Junior 1",
+      "description": "FALL 2024",
       "courses": [
         {
           "course_code": "CSCI 445",
           "name": "Computer Communication Network",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "CSCI 445 Computer Communication Network A 3.000"
         },
         {
@@ -250,7 +244,7 @@
           "name": "Operating Systems",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "CSCI 489 Operating Systems B 3.000"
         },
         {
@@ -258,7 +252,7 @@
           "name": "Ethics",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "PHIL 275 Ethics A 3.000"
         },
         {
@@ -266,7 +260,7 @@
           "name": "Introduction to Physics I",
           "grade": "B",
           "credits": "1.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "PHYS 105 Introduction to Physics I B 1.000"
         },
         {
@@ -274,7 +268,7 @@
           "name": "Introduction to Physics I",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "PHYS 105 Introduction to Physics I A 3.000"
         },
         {
@@ -282,21 +276,21 @@
           "name": "Probability Stat Cmptr Scienti",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Junior 2",
+          "semester": "Junior 1",
           "notes": "STAT 340 Probability Stat Cmptr Scienti A 3.000"
         }
       ]
     },
     {
-      "label": "Senior 1",
-      "description": "Term : Spring 2025",
+      "label": "Junior 2",
+      "description": "SPRING 2025",
       "courses": [
         {
           "course_code": "CSCI 400",
           "name": "Computer Science Seminar",
           "grade": "A",
           "credits": "2.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "CSCI 400 Computer Science Seminar A 2.000"
         },
         {
@@ -304,7 +298,7 @@
           "name": "Programming Languages",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "CSCI 485 Programming Languages A 3.000"
         },
         {
@@ -312,7 +306,7 @@
           "name": "Discrete Math Computer Science",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "MATH 280 Discrete Math Computer Science B 3.000"
         },
         {
@@ -320,7 +314,7 @@
           "name": "Linear Algebra",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "MATH 325 Linear Algebra A 3.000"
         },
         {
@@ -328,7 +322,7 @@
           "name": "Introduction to Physics II",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "PHYS 106 Introduction to Physics II A 3.000"
         },
         {
@@ -336,21 +330,21 @@
           "name": "Introduction to Physics II",
           "grade": "B",
           "credits": "1.000",
-          "semester": "Senior 1",
+          "semester": "Junior 2",
           "notes": "PHYS 106 Introduction to Physics II B 1.000"
         }
       ]
     },
     {
-      "label": "Senior 2",
-      "description": "Term : Fall 2025",
+      "label": "Senior 1",
+      "description": "FALL 2025",
       "courses": [
         {
           "course_code": "CSCI 281",
           "name": "Discrete Structures",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Senior 2",
+          "semester": "Senior 1",
           "notes": "CSCI 281 Discrete Structures A 3.000"
         },
         {
@@ -358,7 +352,7 @@
           "name": "Parallel & Distributed Program",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Senior 2",
+          "semester": "Senior 1",
           "notes": "CSCI 471 Parallel & Distributed Program B 3.000"
         },
         {
@@ -366,7 +360,7 @@
           "name": "Software Design And Developmen",
           "grade": "C",
           "credits": "3.000",
-          "semester": "Senior 2",
+          "semester": "Senior 1",
           "notes": "CSCI 487 Software Design And Developmen C 3.000"
         },
         {
@@ -374,7 +368,7 @@
           "name": "Senior Project I",
           "grade": "B",
           "credits": "3.000",
-          "semester": "Senior 2",
+          "semester": "Senior 1",
           "notes": "CSCI 493 Senior Project I B 3.000"
         },
         {
@@ -382,21 +376,21 @@
           "name": "Top in CS: Intro to Data Scien",
           "grade": "A",
           "credits": "3.000",
-          "semester": "Senior 2",
+          "semester": "Senior 1",
           "notes": "CSCI 495 Top in CS: Intro to Data Scien A 3.000"
         }
       ]
     },
     {
-      "label": "Year5 1",
-      "description": "Term : Spring 2026",
+      "label": "Senior 2",
+      "description": "SPRING 2026",
       "courses": [
         {
           "course_code": "CSCI 392",
           "name": "U Algorithms & Adv Data Structur",
           "grade": "inprog",
           "credits": "3.000",
-          "semester": "Year5 1",
+          "semester": "Senior 2",
           "notes": "CSCI 392 U Algorithms & Adv Data Structur inprog 3.000"
         },
         {
@@ -404,7 +398,7 @@
           "name": "U Senior Project II",
           "grade": "inprog",
           "credits": "3.000",
-          "semester": "Year5 1",
+          "semester": "Senior 2",
           "notes": "CSCI 494 U Senior Project II inprog 3.000"
         },
         {
@@ -412,7 +406,7 @@
           "name": "U Tp in CS: Linux",
           "grade": "inprog",
           "credits": "3.000",
-          "semester": "Year5 1",
+          "semester": "Senior 2",
           "notes": "CSCI 495 U Tp in CS: Linux inprog 3.000"
         },
         {
@@ -420,7 +414,7 @@
           "name": "U World History Since 1500",
           "grade": "inprog",
           "credits": "3.000",
-          "semester": "Year5 1",
+          "semester": "Senior 2",
           "notes": "HIST 115 U World History Since 1500 inprog 3.000"
         }
       ]

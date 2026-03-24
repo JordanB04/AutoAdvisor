@@ -1,0 +1,77 @@
+Prerequisites
+Python 3.10+ installed on Windows
+Microsoft Edge browser (Selenium uses Edge by default)
+PowerShell for running API client commands
+Internet connection for Banner access
+
+Installation
+1. clone repository or download as zip file
+cd autoadvisor-dev
+
+Running API server (In the First Terminal)
+cd C:\path\to\autoadvisor-dev
+python Main.py
+
+You should see 
+[INFO] AutoAdvisor API listening on http://localhost:8001
+
+Open a second terminal and run this fetch transcript script
+$req = @{
+    username    = 'your-vsu-email@students.vsu.edu'
+    password    = 'your-banner-password'
+    advisor     = 'Wang'  # or your advisor's name
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri http://localhost:8001/api/fetch-transcript `
+                              -Method POST -ContentType 'application/json' -Body $req
+
+$sessionId = $response.session_id
+
+$pinReq = @{
+    session_id = $sessionId  # from step 2
+    pin        = '1234'      # replace with actual PIN from Okta
+} | ConvertTo-Json
+
+$transcript = Invoke-RestMethod -Uri http://localhost:8001/api/submit-pin `
+                                -Method POST -ContentType 'application/json' -Body $pinReq
+
+$transcript
+
+What happens:
+
+Browser opens and navigates to Banner login
+Enter your credentials manually in the browser
+Okta sends a PIN to your authenticator app
+Submit the PIN via the API call above
+Selenium scrapes your transcript and organizes courses by semester
+Transcript data is printed to the first terminal and returned in the response
+Final Response:
+
+{
+  "success": true,
+  "session_id": "session_1772124886.747894",
+  "transcript_data": {
+    "name": "Your Name",
+    "v_number": "VXXXXXXX",
+    "advisor": "Wang",
+    "semesters": [
+      {
+        "label": "Freshman 1",
+        "description": "FALL 2022",
+        "courses": [...]
+      },
+      ...
+    ]
+  },
+  "message": "Transcript fetched successfully"
+}
+
+API Endpoints
+POST /api/fetch-transcript - Create session with credentials
+POST /api/submit-pin - Submit PIN and get transcript
+GET /api/session/{session_id} - Check session status
+GET /api/active-sessions - List all active sessions
+DELETE /api/session/{session_id} - Delete a session
+
+
+
